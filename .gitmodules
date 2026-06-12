@@ -1,6 +1,0 @@
-[submodule "circle"]
-	path = circle
-	url = https://github.com/rsta2/circle
-[submodule "picodrive"]
-	path = picodrive
-	url = https://github.com/irixxxx/picodrive
