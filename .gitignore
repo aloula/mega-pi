@@ -1,0 +1,13 @@
+# Compiled build outputs
+*.o
+*.d
+*.elf
+*.img
+*.map
+*.lst
+
+# Tooling and IDE caches
+.rtk/
+.vscode/
+.idea/
+.DS_Store
