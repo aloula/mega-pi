@@ -3,6 +3,7 @@
 #include <circle/alloc.h>
 #include <circle/logger.h>
 #include <circle/timer.h>
+#include <circle/synchronize.h>
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -17,7 +18,9 @@ extern "C" {
 
 #define ROM_BUFFER_SIZE (8 * 1024 * 1024)
 
-extern "C" unsigned int p32x_event_times[1] = {0};
+extern "C" {
+unsigned int p32x_event_times[1] = {0};
+}
 
 static const char FromOrchestrator[] = "orchestrator";
 
@@ -165,6 +168,7 @@ void CEmuOrchestrator::RunFrame() {
     PicoFrame();
 
     // Signal Core 1 (Video) that frame is ready
+    DataMemBarrier();
     g_SharedState.video_frame_ready = TRUE;
 }
 

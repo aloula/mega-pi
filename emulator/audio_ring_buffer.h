@@ -3,6 +3,7 @@
 
 #include <circle/types.h>
 #include <circle/string.h>
+#include <circle/synchronize.h>
 #include <string.h>
 
 class AudioRingBuffer {
@@ -38,6 +39,7 @@ public:
             buffer[idx * 2] = samples[i * 2];
             buffer[idx * 2 + 1] = samples[i * 2 + 1];
         }
+        DataMemBarrier();
         write_idx = (write_idx + num_stereo_samples) & MASK;
     }
 
@@ -46,11 +48,13 @@ public:
         if (num_stereo_samples > avail) {
             num_stereo_samples = avail;
         }
+        DataMemBarrier();
         for (unsigned i = 0; i < num_stereo_samples; i++) {
             unsigned idx = (read_idx + i) & MASK;
             samples[i * 2] = buffer[idx * 2];
             samples[i * 2 + 1] = buffer[idx * 2 + 1];
         }
+        DataMemBarrier();
         read_idx = (read_idx + num_stereo_samples) & MASK;
         return num_stereo_samples;
     }

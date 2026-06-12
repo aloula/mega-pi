@@ -46,8 +46,9 @@ static void DrawBox(u16 *pBuffer, u32 nPitch, int x1, int y1, int x2, int y2, u1
 }
 
 static void DrawChar(u16 *pBuffer, u32 nPitch, char c, int x, int y, u16 fg, u16 bg) {
-    if (c < Font8x16.first_char || c > Font8x16.last_char) return;
-    const u8 *char_data = (const u8 *)Font8x16.data + (c - Font8x16.first_char) * Font8x16.height;
+    unsigned char uc = (unsigned char)c;
+    if (uc < Font8x16.first_char || uc > Font8x16.last_char) return;
+    const u8 *char_data = (const u8 *)Font8x16.data + (uc - Font8x16.first_char) * Font8x16.height;
     for (unsigned row = 0; row < Font8x16.height; row++) {
         u8 pixels = char_data[row];
         for (unsigned col = 0; col < Font8x16.width; col++) {
@@ -313,6 +314,7 @@ void CKernel::RunVideoDomain() {
         } else {
             // Scale and draw game frame
             if (g_SharedState.video_frame_ready) {
+                DataMemBarrier();
                 g_SharedState.video_frame_ready = FALSE;
 
                 // Check active resolution H40 (320 wide) or H32 (256 wide)
