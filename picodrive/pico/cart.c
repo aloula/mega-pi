@@ -376,7 +376,10 @@ static size_t _pm_read_chd(void *ptr, size_t bytes, pm_file *stream, int is_audi
 
       // update hunk cache if needed
       if (hunknum != chd->hunknum) {
-        chd_read(chd->chd, hunknum, chd->hunk);
+        chd_error err = chd_read(chd->chd, hunknum, chd->hunk);
+        if (err != CHDERR_NONE) {
+          elprintf(EL_STATUS|EL_ANOMALY, "cd: chd_read hunk %d failed: %d (%s)", hunknum, err, chd_error_string(err));
+        }
         chd->hunknum = hunknum;
       }
       if (len > bytes)

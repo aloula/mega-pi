@@ -322,6 +322,7 @@ enum media_type_e PicoLoadMedia(const char *filename,
           media_type = PM_ERROR;
           goto out;
         }
+        lprintf("BIOS loaded successfully: size=%d bytes\n", rom_size);
 
         // copy BIOS and close file
         PicoCreateMCD(rom_data, rom_size);

@@ -28,6 +28,7 @@ PICO_INTERNAL void PicoCreateMCD(unsigned char *bios_data, int bios_size)
       elprintf(EL_STATUS, "OOM");
       return;
     }
+    lprintf("PicoCreateMCD: allocated Pico_mcd at %p, size=%d bytes\n", Pico_mcd, (int)sizeof(mcd_state));
   }
   memset(Pico_mcd, 0, sizeof(mcd_state));
 
@@ -156,6 +157,7 @@ void PicoMCDPrepare(void)
   unsigned int osc = (Pico.m.pal ? OSC_PAL : OSC_NTSC);
   mcd_m68k_cycle_mult = DIV_ROUND(7 * 12500000ull << 16, osc);
   mcd_s68k_cycle_mult = DIV_ROUND(1ull * osc << 16, 7 * 12500000);
+  lprintf("PicoMCDPrepare: Pico.m.pal=%d, osc=%u, mcd_m68k_cycle_mult=%u, mcd_s68k_cycle_mult=%u\n", Pico.m.pal, osc, mcd_m68k_cycle_mult, mcd_s68k_cycle_mult);
 }
 
 unsigned int pcd_cycles_m68k_to_s68k(unsigned int c)
@@ -318,6 +320,8 @@ int pcd_sync_s68k(unsigned int m68k_target, int m68k_poll_sync)
   target = m68k_target - mcd_m68k_cycle_base;
   s68k_target = mcd_s68k_cycle_base +
     ((unsigned long long)target * mcd_m68k_cycle_mult >> 16);
+
+
 
   elprintf(EL_CD, "s68k sync to %u, %u->%u",
     m68k_target, now, s68k_target);

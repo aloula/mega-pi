@@ -47,7 +47,7 @@ extern "C" void lprintf(const char *fmt, ...) {
         buf[len-1] = '\0';
         len--;
     }
-    CLogger::Get()->Write(FromOrchestrator, LogDebug, "%s", buf);
+    CLogger::Get()->Write(FromOrchestrator, LogNotice, "%s", buf);
 }
 
 // plat_mmap stubs
@@ -88,7 +88,8 @@ boolean CEmuOrchestrator::Initialize() {
     }
 
     // Initialize Picodrive options
-    PicoIn.opt = POPT_EN_FM | POPT_EN_PSG | POPT_EN_Z80 | POPT_EN_STEREO | POPT_FM_YM2612;
+    PicoIn.opt = POPT_EN_FM | POPT_EN_PSG | POPT_EN_Z80 | POPT_EN_STEREO | POPT_FM_YM2612 |
+                 POPT_EN_MCD_PCM | POPT_EN_MCD_CDDA | POPT_EN_MCD_GFX | POPT_EN_MCD_RAMCART;
     PicoIn.sndRate = 44100;
     PicoIn.sndOut = g_AudioTempBuf;
     PicoIn.writeSound = EmuSoundCallback;
@@ -233,6 +234,7 @@ boolean CEmuOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     // Power on and reset
     PicoPower();
     PsndRerate(0);
+    PicoLoopPrepare();
 
     // Clear input registers
     for (int i = 0; i < 4; ++i) {

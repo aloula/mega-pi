@@ -36,6 +36,8 @@ char *strdup(const char *s) {
     return dup;
 }
 
+extern "C" void lprintf(const char *fmt, ...);
+
 FILE *fopen(const char *pathname, const char *mode) {
     // Find a free wrapper slot
     int slot = -1;
@@ -45,7 +47,10 @@ FILE *fopen(const char *pathname, const char *mode) {
             break;
         }
     }
-    if (slot == -1) return nullptr;
+    if (slot == -1) {
+        lprintf("clib_stubs: fopen(%s) failed: all 64 file slots in use", pathname);
+        return nullptr;
+    }
 
     BYTE flags = 0;
     if (strchr(mode, 'r')) flags |= FA_READ;
@@ -66,6 +71,7 @@ FILE *fopen(const char *pathname, const char *mode) {
 
     FRESULT res = f_open(&s_OpenFiles[slot].file, fullPath, flags);
     if (res != FR_OK) {
+        lprintf("clib_stubs: fopen(%s) failed: FR_%d", fullPath, (int)res);
         return nullptr;
     }
 
@@ -87,9 +93,15 @@ int fclose(FILE *stream) {
 }
 
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
-    if (stream == nullptr) return 0;
+    if (stream == nullptr) {
+        lprintf("clib_stubs: fread(NULL stream)");
+        return 0;
+    }
     CFileWrapper *w = (CFileWrapper *)stream;
-    if (!w->in_use) return 0;
+    if (!w->in_use) {
+        lprintf("clib_stubs: fread(inactive stream)");
+        return 0;
+    }
 
     unsigned bytesToRead = size * nmemb;
     if (bytesToRead == 0) return 0;
@@ -97,6 +109,7 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
     UINT read = 0;
     FRESULT res = f_read(&w->file, ptr, bytesToRead, &read);
     if (res != FR_OK) {
+        lprintf("clib_stubs: fread(%s, size=%u, nmemb=%u) failed: FR_%d", w->title, (unsigned)size, (unsigned)nmemb, (int)res);
         return 0;
     }
     return read / size;
@@ -118,39 +131,78 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
     return written / size;
 }
 
-int fseek(FILE *stream, long offset, int whence) {
-    if (stream == nullptr) return -1;
+static int fseek_internal(FILE *stream, int64_t offset, int whence) {
+    if (stream == nullptr) {
+        lprintf("clib_stubs: fseek(NULL stream)");
+        return -1;
+    }
     CFileWrapper *w = (CFileWrapper *)stream;
-    if (!w->in_use) return -1;
-
-    FSIZE_t target = 0;
-    if (whence == SEEK_SET) {
-        target = offset;
-    } else if (whence == SEEK_CUR) {
-        target = f_tell(&w->file) + offset;
-    } else if (whence == SEEK_END) {
-        target = f_size(&w->file) + offset;
-    } else {
+    if (!w->in_use) {
+        lprintf("clib_stubs: fseek(inactive stream)");
         return -1;
     }
 
-    FRESULT res = f_lseek(&w->file, target);
-    return (res == FR_OK) ? 0 : -1;
+    int64_t target = 0;
+    int64_t current_pos = (int64_t)f_tell(&w->file);
+    int64_t file_size = (int64_t)f_size(&w->file);
+
+    if (whence == SEEK_SET) {
+        target = offset;
+    } else if (whence == SEEK_CUR) {
+        target = current_pos + offset;
+    } else if (whence == SEEK_END) {
+        target = file_size + offset;
+    } else {
+        lprintf("clib_stubs: fseek(%s) failed: invalid whence %d", w->title, whence);
+        return -1;
+    }
+
+    if (target < 0) {
+        lprintf("clib_stubs: fseek(%s) failed: negative target %lld (offset=%lld, whence=%d, size=%lld, pos=%lld)",
+                w->title, (long long)target, (long long)offset, whence, (long long)file_size, (long long)current_pos);
+        return -1;
+    }
+
+    FRESULT res = f_lseek(&w->file, (FSIZE_t)target);
+    if (res != FR_OK) {
+        lprintf("clib_stubs: f_lseek(%s, %llu) failed: FR_%d", w->title, (unsigned long long)target, (int)res);
+        return -1;
+    }
+    return 0;
+}
+
+int fseek(FILE *stream, long offset, int whence) {
+    return fseek_internal(stream, (int64_t)offset, whence);
 }
 
 long ftell(FILE *stream) {
-    if (stream == nullptr) return -1;
+    if (stream == nullptr) {
+        lprintf("clib_stubs: ftell(NULL stream)");
+        return -1;
+    }
     CFileWrapper *w = (CFileWrapper *)stream;
-    if (!w->in_use) return -1;
-    return f_tell(&w->file);
+    if (!w->in_use) {
+        lprintf("clib_stubs: ftell(inactive stream)");
+        return -1;
+    }
+    return (long)f_tell(&w->file);
 }
 
 int fseeko(FILE *stream, off_t offset, int whence) {
-    return fseek(stream, (long)offset, whence);
+    return fseek_internal(stream, (int64_t)offset, whence);
 }
 
 off_t ftello(FILE *stream) {
-    return ftell(stream);
+    if (stream == nullptr) {
+        lprintf("clib_stubs: ftello(NULL stream)");
+        return -1;
+    }
+    CFileWrapper *w = (CFileWrapper *)stream;
+    if (!w->in_use) {
+        lprintf("clib_stubs: ftello(inactive stream)");
+        return -1;
+    }
+    return (off_t)f_tell(&w->file);
 }
 
 int fflush(FILE *stream) {
@@ -182,7 +234,117 @@ char *strerror(int errnum) {
 }
 
 int sscanf(const char *str, const char *format, ...) {
-    return 0;
+    va_list args;
+    va_start(args, format);
+    int count = 0;
+
+    if (strcmp(format, "TRACK:%d TYPE:%s SUBTYPE:%s FRAMES:%d PREGAP:%d PGTYPE:%s PGSUB:%s POSTGAP:%d") == 0) {
+        int *track = va_arg(args, int *);
+        char *type = va_arg(args, char *);
+        char *subtype = va_arg(args, char *);
+        int *frames = va_arg(args, int *);
+        int *pregap = va_arg(args, int *);
+        char *pgtype = va_arg(args, char *);
+        char *pgsub = va_arg(args, char *);
+        int *postgap = va_arg(args, int *);
+
+        if (str && track && type && subtype && frames && pregap && pgtype && pgsub && postgap) {
+            const char *p;
+            if ((p = strstr(str, "TRACK:"))) { *track = (int)strtol(p + 6, nullptr, 10); count++; }
+            if ((p = strstr(str, "TYPE:"))) {
+                char *d = type; p += 5;
+                while (*p && *p != ' ') *d++ = *p++;
+                *d = '\0'; count++;
+            }
+            if ((p = strstr(str, "SUBTYPE:"))) {
+                char *d = subtype; p += 8;
+                while (*p && *p != ' ') *d++ = *p++;
+                *d = '\0'; count++;
+            }
+            if ((p = strstr(str, "FRAMES:"))) { *frames = (int)strtol(p + 7, nullptr, 10); count++; }
+            if ((p = strstr(str, "PREGAP:"))) { *pregap = (int)strtol(p + 7, nullptr, 10); count++; }
+            if ((p = strstr(str, "PGTYPE:"))) {
+                char *d = pgtype; p += 7;
+                while (*p && *p != ' ') *d++ = *p++;
+                *d = '\0'; count++;
+            }
+            if ((p = strstr(str, "PGSUB:"))) {
+                char *d = pgsub; p += 6;
+                while (*p && *p != ' ') *d++ = *p++;
+                *d = '\0'; count++;
+            }
+            if ((p = strstr(str, "POSTGAP:"))) { *postgap = (int)strtol(p + 8, nullptr, 10); count++; }
+        }
+    }
+    else if (strcmp(format, "TRACK:%d TYPE:%s SUBTYPE:%s FRAMES:%d") == 0) {
+        int *track = va_arg(args, int *);
+        char *type = va_arg(args, char *);
+        char *subtype = va_arg(args, char *);
+        int *frames = va_arg(args, int *);
+
+        if (str && track && type && subtype && frames) {
+            const char *p;
+            if ((p = strstr(str, "TRACK:"))) { *track = (int)strtol(p + 6, nullptr, 10); count++; }
+            if ((p = strstr(str, "TYPE:"))) {
+                char *d = type; p += 5;
+                while (*p && *p != ' ') *d++ = *p++;
+                *d = '\0'; count++;
+            }
+            if ((p = strstr(str, "SUBTYPE:"))) {
+                char *d = subtype; p += 8;
+                while (*p && *p != ' ') *d++ = *p++;
+                *d = '\0'; count++;
+            }
+            if ((p = strstr(str, "FRAMES:"))) { *frames = (int)strtol(p + 7, nullptr, 10); count++; }
+        }
+    }
+    else if (strcmp(format, "%d:%d:%d") == 0) {
+        int *m = va_arg(args, int *);
+        int *s = va_arg(args, int *);
+        int *f = va_arg(args, int *);
+
+        if (str && m && s && f) {
+            const char *p = str;
+            while (*p == ' ' || *p == '\t') p++;
+            if (*p >= '0' && *p <= '9') {
+                *m = (int)strtol(p, nullptr, 10);
+                count++;
+                while (*p >= '0' && *p <= '9') p++;
+            }
+            if (*p == ':') {
+                p++;
+                if (*p >= '0' && *p <= '9') {
+                    *s = (int)strtol(p, nullptr, 10);
+                    count++;
+                    while (*p >= '0' && *p <= '9') p++;
+                }
+                if (*p == ':') {
+                    p++;
+                    if (*p >= '0' && *p <= '9') {
+                        *f = (int)strtol(p, nullptr, 10);
+                        count++;
+                    }
+                }
+            }
+        }
+    }
+    else if (strcmp(format, "%d") == 0) {
+        int *val = va_arg(args, int *);
+        if (str && val) {
+            const char *p = str;
+            while (*p == ' ' || *p == '\t') p++;
+            if ((*p >= '0' && *p <= '9') || *p == '-' || *p == '+') {
+                *val = (int)strtol(p, nullptr, 10);
+                count++;
+            }
+        }
+    }
+    else {
+        lprintf("clib_stubs: unsupported sscanf format: %s", format);
+    }
+
+    va_end(args);
+    return count;
 }
 
 int sprintf(char *buf, const char *fmt, ...) {
@@ -327,11 +489,33 @@ void srand(unsigned int seed) {
 }
 
 char *fgets(char *s, int size, FILE *stream) {
-    return nullptr;
+    if (s == nullptr || size <= 0 || stream == nullptr) return nullptr;
+    CFileWrapper *w = (CFileWrapper *)stream;
+    if (!w->in_use) return nullptr;
+
+    int i = 0;
+    while (i < size - 1) {
+        char c;
+        UINT read = 0;
+        FRESULT res = f_read(&w->file, &c, 1, &read);
+        if (res != FR_OK || read == 0) {
+            if (i == 0) return nullptr; // EOF or error
+            break;
+        }
+        s[i++] = c;
+        if (c == '\n') {
+            break;
+        }
+    }
+    s[i] = '\0';
+    return s;
 }
 
 int feof(FILE *stream) {
-    return 0;
+    if (stream == nullptr) return 1;
+    CFileWrapper *w = (CFileWrapper *)stream;
+    if (!w->in_use) return 1;
+    return f_eof(&w->file);
 }
 
 int abs(int x) {
