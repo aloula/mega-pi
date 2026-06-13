@@ -1,5 +1,7 @@
 # MEGA-PI: Bare-Metal Sega Mega Drive/Genesis Emulator
 
+![MEGA-PI Logo](res/Mega_Pi_Logo.png)
+
 **MEGA-PI** is a token-optimized, high-performance Sega Mega Drive / Genesis emulator designed to run bare-metal on the Raspberry Pi. By bypassing heavy operating systems like Linux, it achieves near-instant boot times and ultra-low input latency. 
 
 It leverages the **Picodrive** emulation core and runs on top of the **Circle** bare-metal C++ framework, distributing workload across the Raspberry Pi's four ARM cores.
