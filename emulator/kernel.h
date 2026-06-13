@@ -1,6 +1,14 @@
 #ifndef KERNEL_H
 #define KERNEL_H
 
+#ifndef AARCH
+#define AARCH 32
+#endif
+
+#ifndef ARM_ALLOW_MULTI_CORE
+#define ARM_ALLOW_MULTI_CORE
+#endif
+
 #include <circle/actled.h>
 #include <circle/koptions.h>
 #include <circle/devicenameservice.h>
@@ -13,10 +21,12 @@
 #include <circle/logger.h>
 #include <circle/sched/scheduler.h>
 #include <circle/usb/usbhcidevice.h>
-#include <circle/fs/fat/fatfs.h>
+#include <ff.h>
+#include <circle/memory.h>
 #include <circle/multicore.h>
 #include <circle/usb/usbgamepad.h>
 #include <circle/usb/usbkeyboard.h>
+#include <SDCard/emmc.h>
 #include "shared_state.h"
 #include "osd.h"
 #include "emu_orchestrator.h"
@@ -68,9 +78,10 @@ private:
     CInterruptSystem    m_Interrupt;
     CTimer              m_Timer;
     CLogger             m_Logger;
+    CEMMCDevice         m_EMMC;
     CScheduler          m_Scheduler;
     CUSBHCIDevice       m_USBHCI;
-    CFATFileSystem      m_FileSystem;
+    FATFS               m_FileSystem;
 
     CEmulatorMultiCore  m_MultiCore;
 

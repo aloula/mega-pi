@@ -373,7 +373,8 @@ typedef
 
 #if !defined(_WIN32) \
     && (defined(Z7_ALLOC_NO_OFFSET_ALLOCATOR) \
-        || defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE >= 200112L))
+        || defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE >= 200112L)) \
+    && !defined(__circle__)
   #define USE_posix_memalign
 #endif
 

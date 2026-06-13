@@ -26,7 +26,8 @@ CFATDirectory::CFATDirectory (CFATCache *pCache, CFATInfo *pFATInfo, CFAT *pFAT)
 :	m_pCache (pCache),
 	m_pFATInfo (pFATInfo),
 	m_pFAT (pFAT),
-	m_pBuffer (0)
+	m_pBuffer (0),
+	m_nStartCluster (0)
 {
 }
 
@@ -53,11 +54,14 @@ TFATDirectoryEntry *CFATDirectory::GetEntry (const char *pName)
 	unsigned nEntry = 0;
 
 	unsigned nEntriesPerCluster = 0;
-	unsigned nCluster = 0;
-	if (FATType == FAT32)
+	unsigned nCluster = m_nStartCluster;
+	if (FATType == FAT32 && nCluster == 0)
 	{
 		nCluster = m_pFATInfo->GetRootCluster ();
+	}
 
+	if (FATType == FAT32 || nCluster != 0)
+	{
 		nEntriesPerCluster =   m_pFATInfo->GetSectorsPerCluster ()
 				     * FAT_DIR_ENTRIES_PER_SECTOR;
 	}
@@ -66,7 +70,7 @@ TFATDirectoryEntry *CFATDirectory::GetEntry (const char *pName)
 	
 	while (1)
 	{
-		if (FATType == FAT16)
+		if (FATType == FAT16 && m_nStartCluster == 0)
 		{
 			if (nEntry >= m_pFATInfo->GetRootEntries ())
 			{
@@ -75,7 +79,7 @@ TFATDirectoryEntry *CFATDirectory::GetEntry (const char *pName)
 		}
 		else
 		{
-			assert (FATType == FAT32);
+			assert (FATType == FAT32 || m_nStartCluster != 0);
 			if (m_pFAT->IsEOC (nCluster))
 			{
 				break;
@@ -83,14 +87,13 @@ TFATDirectoryEntry *CFATDirectory::GetEntry (const char *pName)
 		}
 		
 		unsigned nSector;
-		if (FATType == FAT16)
+		if (FATType == FAT16 && m_nStartCluster == 0)
 		{
 			nSector =   m_pFATInfo->GetFirstRootSector ()
 				  + nEntry / FAT_DIR_ENTRIES_PER_SECTOR;
 		}
 		else
 		{
-			assert (FATType == FAT32);
 			nSector =   m_pFATInfo->GetFirstSector (nCluster)
 				  +   (nEntry % nEntriesPerCluster)
 				    / FAT_DIR_ENTRIES_PER_SECTOR;
@@ -114,7 +117,7 @@ TFATDirectoryEntry *CFATDirectory::GetEntry (const char *pName)
 		}
 
 		if (   pFATEntry->Name[0] != FAT_DIR_NAME0_FREE
-		    && !(pFATEntry->nAttributes & (FAT_DIR_ATTR_VOLUME_ID | FAT_DIR_ATTR_DIRECTORY))
+		    && !(pFATEntry->nAttributes & FAT_DIR_ATTR_VOLUME_ID)
 		    && memcmp (pFATEntry->Name, FATName, FAT_DIR_NAME_LENGTH) == 0)
 		{
 			return pFATEntry;
@@ -125,7 +128,7 @@ TFATDirectoryEntry *CFATDirectory::GetEntry (const char *pName)
 
 		nEntry++;
 
-		if (   FATType == FAT32
+		if (   (FATType == FAT32 || m_nStartCluster != 0)
 		    && nEntry % nEntriesPerCluster == 0)
 		{
 			assert (m_pFAT != 0);
@@ -154,11 +157,14 @@ TFATDirectoryEntry *CFATDirectory::CreateEntry (const char *pName)
 	unsigned nEntry = 0;
 
 	unsigned nEntriesPerCluster = 0;
-	unsigned nCluster = 0;
-	if (FATType == FAT32)
+	unsigned nCluster = m_nStartCluster;
+	if (FATType == FAT32 && nCluster == 0)
 	{
 		nCluster = m_pFATInfo->GetRootCluster ();
+	}
 
+	if (FATType == FAT32 || nCluster != 0)
+	{
 		nEntriesPerCluster =   m_pFATInfo->GetSectorsPerCluster ()
 				     * FAT_DIR_ENTRIES_PER_SECTOR;
 	}
@@ -169,7 +175,7 @@ TFATDirectoryEntry *CFATDirectory::CreateEntry (const char *pName)
 	
 	while (1)
 	{
-		if (FATType == FAT16)
+		if (FATType == FAT16 && m_nStartCluster == 0)
 		{
 			if (nEntry >= m_pFATInfo->GetRootEntries ())
 			{
@@ -178,7 +184,7 @@ TFATDirectoryEntry *CFATDirectory::CreateEntry (const char *pName)
 		}
 		else
 		{
-			assert (FATType == FAT32);
+			assert (FATType == FAT32 || m_nStartCluster != 0);
 
 			assert (m_pFAT != 0);
 			if (m_pFAT->IsEOC (nCluster))
@@ -209,14 +215,13 @@ TFATDirectoryEntry *CFATDirectory::CreateEntry (const char *pName)
 		}
 		
 		unsigned nSector;
-		if (FATType == FAT16)
+		if (FATType == FAT16 && m_nStartCluster == 0)
 		{
 			nSector =   m_pFATInfo->GetFirstRootSector ()
 				  + nEntry / FAT_DIR_ENTRIES_PER_SECTOR;
 		}
 		else
 		{
-			assert (FATType == FAT32);
 			nSector =   m_pFATInfo->GetFirstSector (nCluster)
 				  +   (nEntry % nEntriesPerCluster)
 				    / FAT_DIR_ENTRIES_PER_SECTOR;
@@ -245,7 +250,7 @@ TFATDirectoryEntry *CFATDirectory::CreateEntry (const char *pName)
 
 		nEntry++;
 
-		if (   FATType == FAT32
+		if (   (FATType == FAT32 || m_nStartCluster != 0)
 		    && nEntry % nEntriesPerCluster == 0)
 		{
 			nPrevCluster = nCluster;
@@ -298,11 +303,15 @@ boolean CFATDirectory::FindNext (TDirentry *pEntry, TFindCurrentEntry *pCurrentE
 	TFATType FATType = m_pFATInfo->GetFATType ();
 
 	unsigned nEntriesPerCluster = 0;
-	if (FATType == FAT32)
+	if (FATType == FAT32 || m_nStartCluster != 0)
 	{
 		if (pCurrentEntry->nEntry == 0)
 		{
-			pCurrentEntry->nCluster = m_pFATInfo->GetRootCluster ();
+			pCurrentEntry->nCluster = m_nStartCluster;
+			if (FATType == FAT32 && pCurrentEntry->nCluster == 0)
+			{
+				pCurrentEntry->nCluster = m_pFATInfo->GetRootCluster ();
+			}
 		}
 
 		nEntriesPerCluster =   m_pFATInfo->GetSectorsPerCluster ()
@@ -313,7 +322,7 @@ boolean CFATDirectory::FindNext (TDirentry *pEntry, TFindCurrentEntry *pCurrentE
 
 	while (1)
 	{
-		if (FATType == FAT16)
+		if (FATType == FAT16 && m_nStartCluster == 0)
 		{
 			if (pCurrentEntry->nEntry >= m_pFATInfo->GetRootEntries ())
 			{
@@ -322,7 +331,7 @@ boolean CFATDirectory::FindNext (TDirentry *pEntry, TFindCurrentEntry *pCurrentE
 		}
 		else
 		{
-			assert (FATType == FAT32);
+			assert (FATType == FAT32 || m_nStartCluster != 0);
 			if (m_pFAT->IsEOC (pCurrentEntry->nCluster))
 			{
 				break;
@@ -330,14 +339,13 @@ boolean CFATDirectory::FindNext (TDirentry *pEntry, TFindCurrentEntry *pCurrentE
 		}
 		
 		unsigned nSector;
-		if (FATType == FAT16)
+		if (FATType == FAT16 && m_nStartCluster == 0)
 		{
 			nSector =   m_pFATInfo->GetFirstRootSector ()
 				  + pCurrentEntry->nEntry / FAT_DIR_ENTRIES_PER_SECTOR;
 		}
 		else
 		{
-			assert (FATType == FAT32);
 			nSector =   m_pFATInfo->GetFirstSector (pCurrentEntry->nCluster)
 				  +   (pCurrentEntry->nEntry % nEntriesPerCluster)
 				    / FAT_DIR_ENTRIES_PER_SECTOR;
@@ -380,7 +388,7 @@ boolean CFATDirectory::FindNext (TDirentry *pEntry, TFindCurrentEntry *pCurrentE
 
 		pCurrentEntry->nEntry++;
 
-		if (   FATType == FAT32
+		if (   (FATType == FAT32 || m_nStartCluster != 0)
 		    && pCurrentEntry->nEntry % nEntriesPerCluster == 0)
 		{
 			assert (m_pFAT != 0);

@@ -31,9 +31,19 @@ OBJS	= main.o kernel.o osd.o emu_orchestrator.o clib_stubs.o \
 	  ../picodrive/pico/sound/ym2612.o \
 	  ../picodrive/pico/sound/ym2413.o \
 	  ../picodrive/pico/sound/vgm.o \
-	  ../picodrive/pico/sound/mix.o \
-	  ../picodrive/cpu/fame/famec.o \
-	  ../picodrive/cpu/cz80/cz80.o \
+	  ../picodrive/pico/m68kif_cyclone.o \
+	  ../picodrive/cpu/cyclone/Cyclone.o \
+	  ../picodrive/cpu/cyclone/tools/idle.o \
+	  ../picodrive/cpu/DrZ80/drz80.o \
+	  ../picodrive/cpu/drc/cmn.o \
+	  ../picodrive/pico/draw_arm.o \
+	  ../picodrive/pico/draw2_arm.o \
+	  ../picodrive/pico/memory_arm.o \
+	  ../picodrive/pico/sound/ym2612_arm.o \
+	  ../picodrive/pico/sound/mix_arm.o \
+	  ../picodrive/pico/misc_arm.o \
+	  ../picodrive/pico/cd/memory_arm.o \
+	  ../picodrive/pico/cd/misc_arm.o \
 	  ../picodrive/pico/cd/mcd.o \
 	  ../picodrive/pico/cd/memory.o \
 	  ../picodrive/pico/cd/sek.o \
@@ -60,14 +70,43 @@ OBJS	= main.o kernel.o osd.o emu_orchestrator.o clib_stubs.o \
 	  ../picodrive/zlib/inftrees.o \
 	  ../picodrive/zlib/trees.o \
 	  ../picodrive/zlib/uncompr.o \
-	  ../picodrive/zlib/zutil.o
+	  ../picodrive/zlib/zutil.o \
+	  ../picodrive/pico/cd/libchdr/src/libchdr_chd.o \
+	  ../picodrive/pico/cd/libchdr/src/libchdr_cdrom.o \
+	  ../picodrive/pico/cd/libchdr/src/libchdr_flac.o \
+	  ../picodrive/pico/cd/libchdr/src/libchdr_bitstream.o \
+	  ../picodrive/pico/cd/libchdr/src/libchdr_huffman.o \
+	  ../picodrive/pico/cd/libchdr/deps/lzma-24.05/src/CpuArch.o \
+	  ../picodrive/pico/cd/libchdr/deps/lzma-24.05/src/Alloc.o \
+	  ../picodrive/pico/cd/libchdr/deps/lzma-24.05/src/LzmaEnc.o \
+	  ../picodrive/pico/cd/libchdr/deps/lzma-24.05/src/Sort.o \
+	  ../picodrive/pico/cd/libchdr/deps/lzma-24.05/src/LzmaDec.o \
+	  ../picodrive/pico/cd/libchdr/deps/lzma-24.05/src/LzFind.o \
+	  ../picodrive/pico/cd/libchdr/deps/lzma-24.05/src/Delta.o \
+	  ../picodrive/pico/cd/libchdr/deps/zstd-1.5.6/lib/common/entropy_common.o \
+	  ../picodrive/pico/cd/libchdr/deps/zstd-1.5.6/lib/common/error_private.o \
+	  ../picodrive/pico/cd/libchdr/deps/zstd-1.5.6/lib/common/fse_decompress.o \
+	  ../picodrive/pico/cd/libchdr/deps/zstd-1.5.6/lib/common/xxhash.o \
+	  ../picodrive/pico/cd/libchdr/deps/zstd-1.5.6/lib/common/zstd_common.o \
+	  ../picodrive/pico/cd/libchdr/deps/zstd-1.5.6/lib/decompress/huf_decompress.o \
+	  ../picodrive/pico/cd/libchdr/deps/zstd-1.5.6/lib/decompress/zstd_ddict.o \
+	  ../picodrive/pico/cd/libchdr/deps/zstd-1.5.6/lib/decompress/zstd_decompress_block.o \
+	  ../picodrive/pico/cd/libchdr/deps/zstd-1.5.6/lib/decompress/zstd_decompress.o
 
 # Additional C compiler flags for Picodrive core
-CFLAGS   += -I../picodrive -I../picodrive/pico -I../picodrive/cpu/fame -I../picodrive/cpu/cz80 -I../picodrive/zlib -I../picodrive/pico/sound -DEMU_F68K -D_USE_CZ80 -DNO_32X -DNO_SMS -O3 -Wno-unused-result -Wno-write-strings -falign-functions=2
-CPPFLAGS += -I../picodrive -I../picodrive/pico -I../picodrive/cpu/fame -I../picodrive/cpu/cz80 -I../picodrive/zlib -I../picodrive/pico/sound -DEMU_F68K -D_USE_CZ80 -DNO_32X -DNO_SMS -O3 -falign-functions=2
+DEFS     = -D_USE_DRZ80 -DEMU_C68K -D_ASM_DRAW_C -D_ASM_MEMORY_C -D_ASM_YM2612_C -D_ASM_MISC_C -D_ASM_CD_MEMORY_C -DNO_32X -DNO_SMS -DUSE_LIBCHDR -DZ7_ST
+INCS     = -I../picodrive -I../picodrive/pico -I../picodrive/cpu -I../picodrive/pico/sound -I../picodrive/zlib -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon \
+           -I../picodrive/pico/cd/libchdr/include \
+           -I../picodrive/pico/cd/libchdr/deps/lzma-24.05/include \
+           -I../picodrive/pico/cd/libchdr/deps/zstd-1.5.6/lib
 
-LIBS	= $(CIRCLEHOME)/lib/sound/libsound.a \
-	  $(CIRCLEHOME)/lib/fs/fat/libfatfs.a \
+CFLAGS   += $(INCS) $(DEFS) -O3 -Wno-unused-result -Wno-write-strings -falign-functions=2
+CPPFLAGS += $(INCS) $(DEFS) -O3 -falign-functions=2
+AFLAGS   += $(INCS) $(DEFS)
+
+LIBS	= $(CIRCLEHOME)/addon/fatfs/libfatfs.a \
+	  $(CIRCLEHOME)/addon/SDCard/libsdcard.a \
+	  $(CIRCLEHOME)/lib/sound/libsound.a \
 	  $(CIRCLEHOME)/lib/fs/libfs.a \
 	  $(CIRCLEHOME)/lib/input/libinput.a \
 	  $(CIRCLEHOME)/lib/usb/libusb.a \
@@ -75,5 +114,17 @@ LIBS	= $(CIRCLEHOME)/lib/sound/libsound.a \
 	  $(CIRCLEHOME)/lib/libcircle.a
 
 include $(CIRCLEHOME)/Rules.mk
+
+# Custom assembler rule for lowercase .s files (Cyclone, etc.)
+%.o: %.s
+	@echo "  AS    $@"
+	@$(AS) $(AFLAGS) -c -o $@ $<
+
+# Generate ILP32 offset header for ASM files dynamically
+../picodrive/pico/pico_int_offs.h:
+	cd ../picodrive/tools && CC="arm-none-eabi-gcc" CFLAGS="$(DEFS) -I../pico/sound" sh ./mkoffsets.sh ../pico
+
+# Make all objects depend on generated offset header
+$(OBJS): ../picodrive/pico/pico_int_offs.h
 
 -include $(DEPS)

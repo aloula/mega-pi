@@ -2,13 +2,20 @@
 #include <circle/startup.h>
 
 int main(void) {
-    CKernel Kernel;
-    if (!Kernel.Initialize()) {
+    CKernel* pKernel = new CKernel();
+    if (!pKernel) {
+        halt();
+        return EXIT_HALT;
+    }
+    if (!pKernel->Initialize()) {
+        delete pKernel;
         halt();
         return EXIT_HALT;
     }
 
-    TShutdownMode ShutdownMode = Kernel.Run();
+    TShutdownMode ShutdownMode = pKernel->Run();
+
+    delete pKernel;
 
     switch (ShutdownMode) {
         case ShutdownReboot:

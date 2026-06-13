@@ -1,16 +1,15 @@
-#
-# Enable 32-bit mode (AArch32)
-#
-# This file must be copied along with the generated kernel7[l].img
-# onto a SD(HC) card with FAT file system, if 32-bit mode is used.
-#
-# This file also enables the possibility to use the FIQ and two
-# displays with the Raspberry Pi 4 and selects the required mode
-# for the USB host controller of the Compute Module 4.
-#
-
+# Default settings
 arm_64bit=0
-initial_turbo=0
+enable_uart=1
+initial_turbo=60
+disable_splash=1
+hdmi_drive=2
+
+[pi3]
+kernel=kernel8-32.img
+dtoverlay=pi3-disable-bt
+arm_freq=1200
+force_turbo=1
 
 [pi4]
 kernel=kernel7l.img
@@ -19,3 +18,14 @@ max_framebuffers=2
 
 [cm4]
 otg_mode=1
+
+# Note for Debugging & Performance:
+# To customize the application at boot, you can create a file named `cmdline.txt`
+# on the root of your SD card (single line with space-delimited options).
+#
+# Recommended content for high performance (uses screen for logs):
+#   fast=true logdev=tty1 loglevel=3
+#
+# To debug via the serial interface (GPIO 14 & 15 at 115200 baud):
+#   fast=true logdev=ttyS1 loglevel=4
+

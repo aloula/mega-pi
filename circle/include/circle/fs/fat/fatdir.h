@@ -42,6 +42,8 @@ public:
 
 	static unsigned Time2FAT (unsigned nTime);	// returns FAT time (date << 16 | time)
 
+	void SetStartCluster (unsigned nCluster) { m_nStartCluster = nCluster; }
+
 private:
 	static boolean Name2FAT (const char *pName, char *pFATName);
 	static void FAT2Name (const char *pFATName, char *pName);
@@ -54,6 +56,8 @@ private:
 	TFATBuffer *m_pBuffer;
 
 	CGenericLock m_Lock;
+
+	unsigned m_nStartCluster;
 };
 
 #endif

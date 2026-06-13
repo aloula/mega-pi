@@ -3,25 +3,28 @@
 #include <circle/alloc.h>
 #include <circle/util.h>
 #include <circle/stdarg.h>
+#include <circle/synchronize.h>
 #include <sys/time.h>
+#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <circle/fs/fat/fatfs.h>
+#include <ff.h>
+#include "shared_state.h"
 
-extern CFATFileSystem *g_pFileSystem;
+extern FATFS *g_pFileSystem;
 
 struct CFileWrapper {
-    unsigned hFile;
+    FIL file;
     char title[128];
-    boolean bWrite;
-    unsigned int offset;
-    unsigned int size;
     boolean in_use;
 };
 
 static CFileWrapper s_OpenFiles[8];
 
 extern "C" {
+
+static char dummy_reent[1024];
+struct _reent * _impure_ptr = (struct _reent *)dummy_reent;
 
 char *strdup(const char *s) {
     if (s == nullptr) return nullptr;
@@ -34,8 +37,6 @@ char *strdup(const char *s) {
 }
 
 FILE *fopen(const char *pathname, const char *mode) {
-    if (g_pFileSystem == nullptr) return nullptr;
-
     // Find a free wrapper slot
     int slot = -1;
     for (int i = 0; i < 8; i++) {
@@ -46,141 +47,129 @@ FILE *fopen(const char *pathname, const char *mode) {
     }
     if (slot == -1) return nullptr;
 
-    boolean bWrite = FALSE;
-    if (strchr(mode, 'w') || strchr(mode, 'a')) {
-        bWrite = TRUE;
-    }
+    BYTE flags = 0;
+    if (strchr(mode, 'r')) flags |= FA_READ;
+    if (strchr(mode, 'w')) flags |= FA_WRITE | FA_CREATE_ALWAYS;
+    if (strchr(mode, 'a')) flags |= FA_WRITE | FA_OPEN_APPEND;
+    if (strchr(mode, '+')) flags |= FA_READ | FA_WRITE;
 
-    unsigned hFile = 0;
-    if (bWrite) {
-        hFile = g_pFileSystem->FileCreate(pathname);
+    // Convert potential raw path with leading slash to use drive specifier SD:/
+    char fullPath[256];
+    if (pathname[0] == '/') {
+        snprintf(fullPath, sizeof(fullPath), "SD:%s", pathname);
+    } else if (strncmp(pathname, "SD:", 3) != 0) {
+        snprintf(fullPath, sizeof(fullPath), "SD:/%s", pathname);
     } else {
-        hFile = g_pFileSystem->FileOpen(pathname);
+        strncpy(fullPath, pathname, sizeof(fullPath) - 1);
+        fullPath[sizeof(fullPath) - 1] = '\0';
     }
 
-    if (hFile == 0) {
+    FRESULT res = f_open(&s_OpenFiles[slot].file, fullPath, flags);
+    if (res != FR_OK) {
         return nullptr;
     }
 
-    s_OpenFiles[slot].hFile = hFile;
-    strncpy(s_OpenFiles[slot].title, pathname, 127);
+    strncpy(s_OpenFiles[slot].title, fullPath, 127);
     s_OpenFiles[slot].title[127] = '\0';
-    s_OpenFiles[slot].bWrite = bWrite;
-    s_OpenFiles[slot].offset = 0;
-    s_OpenFiles[slot].size = 0xFFFFFFFF;
     s_OpenFiles[slot].in_use = TRUE;
 
     return (FILE *)&s_OpenFiles[slot];
 }
 
 int fclose(FILE *stream) {
-    if (g_pFileSystem == nullptr || stream == nullptr) return -1;
+    if (stream == nullptr) return -1;
     CFileWrapper *w = (CFileWrapper *)stream;
     if (!w->in_use) return -1;
 
-    g_pFileSystem->FileClose(w->hFile);
+    f_close(&w->file);
     w->in_use = FALSE;
     return 0;
 }
 
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
-    if (g_pFileSystem == nullptr || stream == nullptr) return 0;
+    if (stream == nullptr) return 0;
     CFileWrapper *w = (CFileWrapper *)stream;
-    if (!w->in_use || w->bWrite) return 0;
+    if (!w->in_use) return 0;
 
     unsigned bytesToRead = size * nmemb;
     if (bytesToRead == 0) return 0;
 
-    unsigned read = g_pFileSystem->FileRead(w->hFile, ptr, bytesToRead);
-    if (read == 0xFFFFFFFF) {
+    UINT read = 0;
+    FRESULT res = f_read(&w->file, ptr, bytesToRead, &read);
+    if (res != FR_OK) {
         return 0;
     }
-    w->offset += read;
     return read / size;
 }
 
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
-    if (g_pFileSystem == nullptr || stream == nullptr) return 0;
+    if (stream == nullptr) return 0;
     CFileWrapper *w = (CFileWrapper *)stream;
-    if (!w->in_use || !w->bWrite) return 0;
+    if (!w->in_use) return 0;
 
     unsigned bytesToWrite = size * nmemb;
     if (bytesToWrite == 0) return 0;
 
-    unsigned written = g_pFileSystem->FileWrite(w->hFile, ptr, bytesToWrite);
-    if (written == 0xFFFFFFFF) {
+    UINT written = 0;
+    FRESULT res = f_write(&w->file, ptr, bytesToWrite, &written);
+    if (res != FR_OK) {
         return 0;
     }
-    w->offset += written;
     return written / size;
 }
 
 int fseek(FILE *stream, long offset, int whence) {
-    if (g_pFileSystem == nullptr || stream == nullptr) return -1;
+    if (stream == nullptr) return -1;
     CFileWrapper *w = (CFileWrapper *)stream;
     if (!w->in_use) return -1;
 
-    unsigned target = w->offset;
+    FSIZE_t target = 0;
     if (whence == SEEK_SET) {
         target = offset;
     } else if (whence == SEEK_CUR) {
-        target = w->offset + offset;
+        target = f_tell(&w->file) + offset;
+    } else if (whence == SEEK_END) {
+        target = f_size(&w->file) + offset;
     } else {
         return -1;
     }
 
-    if (target == w->offset) {
-        return 0;
-    }
-
-    if (w->bWrite) {
-        return -1;
-    }
-
-    if (target < w->offset) {
-        g_pFileSystem->FileClose(w->hFile);
-        w->hFile = g_pFileSystem->FileOpen(w->title);
-        if (w->hFile == 0) {
-            w->in_use = FALSE;
-            return -1;
-        }
-        w->offset = 0;
-    }
-
-    char temp[256];
-    while (w->offset < target) {
-        unsigned diff = target - w->offset;
-        unsigned to_read = diff > sizeof(temp) ? sizeof(temp) : diff;
-        unsigned read = g_pFileSystem->FileRead(w->hFile, temp, to_read);
-        if (read == 0 || read == 0xFFFFFFFF) {
-            break;
-        }
-        w->offset += read;
-    }
-
-    return (w->offset == target) ? 0 : -1;
+    FRESULT res = f_lseek(&w->file, target);
+    return (res == FR_OK) ? 0 : -1;
 }
 
 long ftell(FILE *stream) {
     if (stream == nullptr) return -1;
     CFileWrapper *w = (CFileWrapper *)stream;
     if (!w->in_use) return -1;
-    return w->offset;
+    return f_tell(&w->file);
+}
+
+int fseeko(FILE *stream, off_t offset, int whence) {
+    return fseek(stream, (long)offset, whence);
+}
+
+off_t ftello(FILE *stream) {
+    return ftell(stream);
 }
 
 int fflush(FILE *stream) {
+    if (stream == nullptr) return -1;
+    CFileWrapper *w = (CFileWrapper *)stream;
+    if (!w->in_use) return -1;
+    f_sync(&w->file);
     return 0;
 }
 
 int fputc(int c, FILE *stream) {
-    if (g_pFileSystem == nullptr || stream == nullptr) return -1;
+    if (stream == nullptr) return -1;
     CFileWrapper *w = (CFileWrapper *)stream;
-    if (!w->in_use || !w->bWrite) return -1;
+    if (!w->in_use) return -1;
 
     unsigned char ch = (unsigned char)c;
-    unsigned written = g_pFileSystem->FileWrite(w->hFile, &ch, 1);
-    if (written != 1) return -1;
-    w->offset += 1;
+    UINT written = 0;
+    FRESULT res = f_write(&w->file, &ch, 1, &written);
+    if (res != FR_OK || written != 1) return -1;
     return c;
 }
 
@@ -365,13 +354,44 @@ void perror(const char *s) {
     lprintf("perror: %s", s);
 }
 
+static void swap_bytes(char *a, char *b, size_t size) {
+    char tmp;
+    while (size--) {
+        tmp = *a;
+        *a++ = *b;
+        *b++ = tmp;
+    }
+}
+
+void qsort(void *base, size_t num, size_t size, int (*compar)(const void *, const void *)) {
+    if (num <= 1) return;
+    char *char_base = (char *)base;
+    char *pivot = char_base + (num - 1) * size;
+    size_t i = 0;
+    for (size_t j = 0; j < num - 1; j++) {
+        if (compar(char_base + j * size, pivot) <= 0) {
+            swap_bytes(char_base + i * size, char_base + j * size, size);
+            i++;
+        }
+    }
+    swap_bytes(char_base + i * size, pivot, size);
+    if (i > 1) {
+        qsort(char_base, i, size, compar);
+    }
+    if (num - i - 1 > 1) {
+        qsort(char_base + (i + 1) * size, num - i - 1, size, compar);
+    }
+}
+
 // Picodrive SMS & 32x stubs
 void Pico32xPrepare(void) {}
 void PicoPrepareMS(void) {}
+#ifndef _ASM_MEMORY_C
 unsigned int PicoRead8_32x(unsigned int a) { return 0; }
 unsigned int PicoRead16_32x(unsigned int a) { return 0; }
 void PicoWrite8_32x(unsigned int a, unsigned int d) {}
 void PicoWrite16_32x(unsigned int a, unsigned int d) {}
+#endif
 
 // Picodrive ZIP stubs
 struct ZIP;
@@ -381,8 +401,11 @@ void closezip(ZIP* zip) {}
 struct zipent* readzip(ZIP* zip) { return nullptr; }
 int seekcompresszip(ZIP* zip, struct zipent* ent) { return -1; }
 
-// Picodrive video mode change stub
-void emu_video_mode_change(int start_line, int line_count, int start_col, int col_count) {}
+// Picodrive video mode change callback
+void emu_video_mode_change(int start_line, int line_count, int start_col, int col_count) {
+    g_SharedState.start_line = start_line;
+    g_SharedState.game_h = line_count;
+}
 
 // Picodrive Sega CD MP3 & OGG stubs
 int mp3_get_bitrate(void *f, int size) { return 0; }
@@ -392,5 +415,14 @@ int ogg_get_length(void *f_) { return 0; }
 void ogg_start_play(void *f_, int sample_offset) {}
 void ogg_stop_play(void) {}
 void ogg_update(s32 *buffer, int length, int stereo) {}
+
+void cache_flush_d_inval_i(void *start_addr, void *end_addr) {
+    unsigned int start = (unsigned int)start_addr;
+    unsigned int end = (unsigned int)end_addr;
+    if (end > start) {
+        CleanAndInvalidateDataCacheRange(start, end - start);
+    }
+    InvalidateInstructionCache();
+}
 
 } // extern "C"

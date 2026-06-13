@@ -47,6 +47,24 @@ int CFATFileSystem::Mount (CDevice *pPartition)
 		return 0;
 	}
 
+	m_Root.SetStartCluster (0);
+	TFATDirectoryEntry *pEntry = m_Root.GetEntry ("ROMS");
+	if (pEntry != 0)
+	{
+		unsigned nStartCluster = 0;
+		boolean bIsDirectory = (pEntry->nAttributes & FAT_DIR_ATTR_DIRECTORY) != 0;
+		if (bIsDirectory)
+		{
+			nStartCluster = (unsigned) pEntry->nFirstClusterHigh << 16 | pEntry->nFirstClusterLow;
+		}
+		m_Root.FreeEntry (FALSE);
+
+		if (bIsDirectory)
+		{
+			m_Root.SetStartCluster (nStartCluster);
+		}
+	}
+
 	return 1;
 }
 

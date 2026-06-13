@@ -1,12 +1,12 @@
 #ifndef OSD_H
 #define OSD_H
 
-#include <circle/fs/fat/fatfs.h>
+#include <ff.h>
 #include "shared_state.h"
 
 class COSDMenu {
 public:
-    COSDMenu(CFATFileSystem *pFileSystem);
+    COSDMenu(FATFS *pFileSystem);
     ~COSDMenu();
 
     boolean Initialize();
@@ -22,8 +22,8 @@ private:
     void ScanRoms();
 
 private:
-    CFATFileSystem *m_pFileSystem;
-    char m_RomFiles[MAX_ROMS][64];
+    FATFS *m_pFileSystem;
+    char m_RomFiles[MAX_ROMS][128];
     unsigned m_RomSizes[MAX_ROMS];
     int m_RomCount;
     int m_SelectedIndex;

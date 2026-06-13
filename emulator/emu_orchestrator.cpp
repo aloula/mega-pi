@@ -114,6 +114,41 @@ static const char *GetBiosFilename(int *region, const char *cd_fname) {
     static char bios_path[256];
     int reg = *region;
     
+    // If region is unknown (0), try to detect from the filename
+    if (reg == 0 && cd_fname != nullptr) {
+        char lower_name[256];
+        size_t len = strlen(cd_fname);
+        if (len >= sizeof(lower_name)) len = sizeof(lower_name) - 1;
+        for (size_t i = 0; i < len; ++i) {
+            char c = cd_fname[i];
+            if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+            lower_name[i] = c;
+        }
+        lower_name[len] = '\0';
+        
+        boolean is_us = FALSE;
+        boolean is_eu = FALSE;
+        if (strstr(lower_name, "(u)") != nullptr || 
+            strstr(lower_name, "(usa)") != nullptr || 
+            strstr(lower_name, "(us)") != nullptr ||
+            strstr(lower_name, "usa") != nullptr) {
+            is_us = TRUE;
+        } else if (strstr(lower_name, "(e)") != nullptr || 
+                   strstr(lower_name, "(eur)") != nullptr || 
+                   strstr(lower_name, "(europe)") != nullptr ||
+                   strstr(lower_name, "europe") != nullptr) {
+            is_eu = TRUE;
+        }
+        
+        if (is_us) {
+            reg = 4;
+            *region = 4;
+        } else if (is_eu) {
+            reg = 8;
+            *region = 8;
+        }
+    }
+    
     // Check region: 4 = US, 8 = EU, others (1, 2) = JP
     if (reg == 4) {
         snprintf(bios_path, sizeof(bios_path), "SD:/bios/bios_CD_U.bin");
