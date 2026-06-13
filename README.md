@@ -11,14 +11,18 @@ It leverages the **Picodrive** emulation core and runs on top of the **Circle** 
 ## 🚀 Key Features
 
 *   **Multi-core Architecture**:
-    *   **Core 0 (Orchestrator)**: Emulates the Mega Drive hardware and synchronizes sub-systems.
+    *   **Core 0 (Orchestrator)**: Emulates the Sega Mega Drive/Mega CD hardware, clocks the Sub-CPU (S68K) synchronously, and handles emulation events.
     *   **Core 1 (Video)**: Handles 2x integer nearest-neighbor upscaling (yielding clean 640x480 outputs) and OSD menu rendering.
     *   **Core 2 (Audio)**: Outputs 44.1 kHz stereo audio via the Pi's PWM sound engine.
     *   **Core 3 (Input)**: Dedicated USB plug-and-play thread for gamepad and keyboard inputs.
-*   **Scrolling OSD Menu**: Browse up to 1000 ROMs with a viewport-scrolling window and ROM counter. The OSD features a clean forest green container with high-contrast grayscale elements, and lists ROMs cleanly without extensions, displaying their size in KB (e.g., `Sonic (512 KB)`).
+*   **Sega CD / Mega CD Support**:
+    *   **High-Quality Formats**: Supports CD images in both standard `.cue` (with separate `.bin` tracks) and compressed `.chd` formats (compressed via `chdman`).
+    *   **Accurate Subsystem Emulation**: Emulates the Sub-CPU, RF5C164 PCM audio chip, CDDA (Redbook) digital audio streaming, and the hardware rotation/scaling graphics coprocessor.
+    *   **Region-Free BIOS Handling**: Automatically detects the CD region from the image and loads the corresponding BIOS file (`bios_CD_E.bin`, `bios_CD_U.bin`, `bios_CD_J.bin`).
+*   **Scrolling OSD Menu**: Browse up to 1000 ROMs with a viewport-scrolling window and ROM counter. The OSD features a clean forest green container with high-contrast grayscale elements, and lists ROMs cleanly without extensions, displaying their size (e.g., `Sonic (512 KB)` or `Lords of Thunder (351 MB)`).
 *   **Save & Load States**: Supports standard emulator save states mapped directly to the SD card.
 *   **Input Masking**: In-game actions are ignored while holding control hotkey combinations to prevent accidental character movements.
-*   **ROM Support**: Scans and loads `.bin`, `.md`, and `.gen` files.
+*   **ROM Support**: Scans and loads `.bin`, `.md`, `.gen` files for Genesis/Mega Drive, and `.cue`, `.chd` files for Sega CD / Mega CD.
 
 ---
 
@@ -123,5 +127,9 @@ Once Circle is compiled, you can build the emulator executable.
 1. Format an SD card as **FAT32**.
 2. Copy all files and directories (including the `overlays` directory) from the [emulator/boot/](file:///home/loula/src/mega-pi/emulator/boot/) directory (including firmware files like `bootcode.bin`, `start.elf`, `start4.elf`, `fixup.dat`, Device Tree `.dtb` files, `config.txt`, and `cmdline.txt`) to the root of the SD card.
 3. Copy your compiled kernel image (`kernel8-32.img` for RPi 3 or `kernel7l.img` for RPi 4) from the [emulator/](file:///home/loula/src/mega-pi/emulator/) directory to the root of the SD card.
-4. Create a folder named `roms` on the root of the SD card, and place your Sega Genesis ROMs (`.bin`, `.md`, `.gen`) inside it.
-5. Plug in a USB Gamepad and/or Keyboard, insert the SD card, and power on the Pi.
+4. Create a folder named `roms` on the root of the SD card, and place your Sega Genesis ROMs (`.bin`, `.md`, `.gen`) and Sega CD games (`.cue` + `.bin` tracks, or compressed `.chd` files) inside it.
+5. **Sega CD BIOS Setup**: Create a folder named `bios` on the root of the SD card and copy the official Sega CD BIOS files. They must be named exactly as follows depending on the region:
+   * **US Region**: `bios_CD_U.bin`
+   * **EU Region**: `bios_CD_E.bin`
+   * **JP Region**: `bios_CD_J.bin`
+6. Plug in a USB Gamepad and/or Keyboard, insert the SD card, and power on the Pi.
