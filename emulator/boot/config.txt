@@ -9,7 +9,7 @@ hdmi_drive=2
 kernel=kernel8-32.img
 dtoverlay=pi3-disable-bt
 arm_freq=1200
-force_turbo=1
+#force_turbo=1
 
 [pi4]
 kernel=kernel7l.img

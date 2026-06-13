@@ -20,7 +20,7 @@ else
         RAW_VERSION=$(git describe --tags --always --dirty 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)
     fi
     if [ -z "$RAW_VERSION" ]; then
-        RAW_VERSION="1.0.0"
+        RAW_VERSION="1.0"
     fi
 fi
 

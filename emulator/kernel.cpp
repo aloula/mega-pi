@@ -206,6 +206,14 @@ void CKernel::RunOrchestrator() {
     static boolean just_entered_menu = TRUE;
 
     while (1) {
+        // Periodically check SoC temperature and throttle CPU speed if necessary (every 4 seconds)
+        static u64 last_temp_check = 0;
+        u64 now = CTimer::GetClockTicks64();
+        if (now - last_temp_check >= 4000000) {
+            m_CPUThrottle.SetOnTemperature();
+            last_temp_check = now;
+        }
+
         if (g_SharedState.in_menu) {
             // OSD Menu navigation using gamepad/keyboard pad state with auto scrolling
             static u16 prev_pad1 = 0;
@@ -393,7 +401,7 @@ void CKernel::RunVideoDomain() {
 
                 // Draw Title (pure white)
 #ifndef MEGAPI_VERSION
-#define MEGAPI_VERSION "1.0.0"
+#define MEGAPI_VERSION "1.0"
 #endif
                 char title_str[64];
                 snprintf(title_str, sizeof(title_str), "--- MEGA-PI BAREMETAL EMULATOR v%s ---", MEGAPI_VERSION);
@@ -565,7 +573,7 @@ void CKernel::RunVideoDomain() {
                     }
                 }
             } else {
-                CTimer::SimpleusDelay(500);
+                CTimer::SimpleusDelay(1000); // Poll every 1ms instead of 500us to reduce CPU load
             }
         }
     }
@@ -616,7 +624,7 @@ void CKernel::RunAudioDomain() {
             unsigned read = g_SharedState.audio_ring_buffer.Read(local_buf, avail);
             pSoundDevice->Write(local_buf, read * 4); // each stereo sample is 4 bytes
         } else {
-            CTimer::SimpleusDelay(100); // 100us low-latency poll interval
+            CTimer::SimpleusDelay(1000); // Poll every 1ms instead of 100us to reduce idle CPU consumption
         }
     }
 
