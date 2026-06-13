@@ -196,8 +196,8 @@ void CKernel::RunOrchestrator() {
     m_pEmuOrchestrator = new CEmuOrchestrator(&m_FileSystem);
     m_pEmuOrchestrator->Initialize();
 
-    // Turn activity LED ON once the emulator has fully booted
-    m_ActLED.On();
+    // Turn activity LED OFF once the emulator has fully booted (HDD LED style)
+    m_ActLED.Off();
 
     g_SharedState.in_menu = TRUE;
     g_SharedState.start_line = 8;
@@ -264,6 +264,8 @@ void CKernel::RunOrchestrator() {
 
             boolean doLeft = (pressed & (1 << 2)) != 0;
             boolean doRight = (pressed & (1 << 3)) != 0;
+            boolean doB = (pressed & (1 << 4)) != 0;
+            boolean doC = (pressed & (1 << 5)) != 0;
 
             if (doUp) {
                 m_pOSDMenu->MoveUp();
@@ -276,6 +278,12 @@ void CKernel::RunOrchestrator() {
             }
             if (doRight) {
                 m_pOSDMenu->MoveRight();
+            }
+            if (doB) {
+                m_pOSDMenu->FavoriteCurrent();
+            }
+            if (doC) {
+                m_pOSDMenu->UnfavoriteCurrent();
             }
 
             if ((pressed & ((1 << 6) | (1 << 7))) && start_released) { // A or Start -> Select ROM
@@ -293,7 +301,6 @@ void CKernel::RunOrchestrator() {
                         g_SharedState.audio_ring_buffer.Init();
                         g_SharedState.in_menu = FALSE;
                         g_SharedState.escape_pressed = FALSE;
-                        m_ActLED.On(); // Ensure activity LED remains ON after SD card read
                         just_entered_menu = TRUE;
                     }
                 }
@@ -308,7 +315,6 @@ void CKernel::RunOrchestrator() {
                 g_SharedState.in_menu = TRUE;
                 g_SharedState.escape_pressed = FALSE;
                 m_pOSDMenu->Update();
-                m_ActLED.On(); // Ensure activity LED remains ON after SD card read
                 just_entered_menu = TRUE;
             }
 
@@ -318,14 +324,12 @@ void CKernel::RunOrchestrator() {
                 m_pEmuOrchestrator->SaveState(0);
                 // Blink the activity LED 3 times quickly to confirm save
                 m_ActLED.Blink(3, 50, 50);
-                m_ActLED.On(); // Keep ON afterwards
             }
             if (g_SharedState.load_state_requested) {
                 g_SharedState.load_state_requested = FALSE;
                 m_pEmuOrchestrator->LoadState(0);
                 // Blink the activity LED 3 times quickly to confirm load
                 m_ActLED.Blink(3, 50, 50);
-                m_ActLED.On(); // Keep ON afterwards
             }
 
             // Lock to 60 FPS (using microsecond precision ticks)
@@ -399,15 +403,16 @@ void CKernel::RunVideoDomain() {
                 // Draw separator 1 (dark gray)
                 DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 40, x2 - 20, y1 + 41, COLOR15(6, 6, 6));
 
-                // Draw 5 tabs
+                // Draw 6 tabs
                 int active_tab = g_SharedState.menu_active_tab;
-                int tab_start_x = x1 + 10; // 50
-                int tab_spacing = 10;
-                int tab_width = 100;
+                int tab_width = 80;
+                int tab_spacing = 8;
+                int tab_area_width = 6 * tab_width + 5 * tab_spacing;
+                int tab_start_x = x1 + ((x2 - x1) - tab_area_width) / 2;
                 int tab_y1 = y1 + 46;
                 int tab_y2 = y1 + 68;
 
-                for (int t = 0; t < 5; t++) {
+                for (int t = 0; t < 6; t++) {
                     int tx1 = tab_start_x + t * (tab_width + tab_spacing);
                     int tx2 = tx1 + tab_width;
                     
@@ -437,7 +442,11 @@ void CKernel::RunVideoDomain() {
                 DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 75, x2 - 20, y1 + 76, COLOR15(6, 6, 6));
 
                 if (num_lines == 0) {
-                    DrawString(pBackBuffer, SCREEN_WIDTH, "No ROMs found! Copy ROM files to SD card.", 150, 180, COLOR15(31, 10, 10), 0);
+                    if (active_tab == 1) {
+                        DrawString(pBackBuffer, SCREEN_WIDTH, "No favorites added! Press B on a game to favorite it.", 116, 180, COLOR15(31, 31, 31), 0);
+                    } else {
+                        DrawString(pBackBuffer, SCREEN_WIDTH, "No ROMs found! Copy ROM files to SD card.", 150, 180, COLOR15(31, 10, 10), 0);
+                    }
                 } else {
                     // List ROM files with centered viewport scrolling (mega-pi-metal style)
                     int view_size = 17;
@@ -489,7 +498,7 @@ void CKernel::RunVideoDomain() {
                 DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y2 - 28, x2 - 20, y2 - 27, COLOR15(6, 6, 6));
 
                 // Center instructions footer inside the screen limits
-                const char *footer_text = "UP/DN: ROMs | L/R: Tabs | A: Boot | START+SELECT: Exit";
+                const char *footer_text = "UP/DN:ROMs | L/R:Tabs | A:Boot | B:Fav | C:Unf | START+SEL:Exit";
                 int footer_w = strlen(footer_text) * 8;
                 int footer_x = (SCREEN_WIDTH - footer_w) / 2;
                 DrawString(pBackBuffer, SCREEN_WIDTH, footer_text, footer_x, y2 - 20, COLOR15(12, 12, 12), 0);

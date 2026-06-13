@@ -1,0 +1,1 @@
+fast=true logdev=tty1 loglevel=3

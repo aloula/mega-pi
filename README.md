@@ -19,8 +19,10 @@ It leverages the **Picodrive** emulation core and runs on top of the **Circle** 
     *   **High-Quality Formats**: Supports CD images in both standard `.cue` (with separate `.bin` tracks) and compressed `.chd` formats (compressed via `chdman`).
     *   **Accurate Subsystem Emulation**: Emulates the Sub-CPU, RF5C164 PCM audio chip, CDDA (Redbook) digital audio streaming, and the hardware rotation/scaling graphics coprocessor.
     *   **Region-Free BIOS Handling**: Automatically detects the CD region from the image and loads the corresponding BIOS file (`bios_CD_E.bin`, `bios_CD_U.bin`, `bios_CD_J.bin`).
-*   **Scrolling OSD Menu**: Browse up to 1000 ROMs with a viewport-scrolling window and ROM counter. The OSD features a clean forest green container with high-contrast grayscale elements, and lists ROMs cleanly without extensions, displaying their size (e.g., `Sonic (512 KB)` or `Lords of Thunder (351 MB)`).
-*   **Save & Load States**: Supports standard emulator save states mapped directly to the SD card.
+*   **Smart Tabbed OSD Navigation**: Partitioned across 6 distinct tabs (ALL, FAV, alphabetical splits, and Mega CD), easily browsed using Left/Right controls. Includes clean alignment prefixes (`* ` for favorites, `  ` for standard), viewport-scrolling window, ROM counter, and file size indicator.
+*   **Persistent Save & Load States**: Supports standard emulator save states mapped directly to the SD card. Save operations physically check the SD card status (`CMD13` polling) and verify that sector programming is completed before returning, ensuring 100% data retention across physical power cycles.
+*   **HDD LED Simulation**: The green activity LED is configured to remain OFF by default and flash dynamically only during physical SD card read/write operations (simulating a classic hard drive activity indicator).
+*   **Favorite Games System**: Toggle favorites persistently via a single button press. Favorites are stored inside `SD:/roms/favorites.txt` and synced safely to disk.
 *   **Input Masking**: In-game actions are ignored while holding control hotkey combinations to prevent accidental character movements.
 *   **ROM Support**: Scans and loads `.bin`, `.md`, `.gen` files for Genesis/Mega Drive, and `.cue`, `.chd` files for Sega CD / Mega CD.
 
@@ -31,33 +33,36 @@ It leverages the **Picodrive** emulation core and runs on top of the **Circle** 
 The emulator supports both USB gamepads and USB keyboards out-of-the-box.
 
 ### Gamepad Configuration
-During gameplay, use the following shortcuts to trigger emulator hotkeys:
+In the menu or during gameplay, use the following shortcuts:
 
 | Action | Control Shortcut |
 | :--- | :--- |
 | **Move Up / Down** (Menu) | D-pad Up / Down |
+| **Change Active Tab** (Menu) | D-pad Left / Right |
+| **Favorite Selected ROM** (Menu) | **Button B** |
+| **Disfavorite Selected ROM** (Menu) | **Button C** |
 | **Boot Selected ROM** (Menu) | Button A / Start |
-| **Save State** (Slot 0) | **SELECT + D-pad Left** |
-| **Load State** (Slot 0) | **SELECT + D-pad Right** |
-| **Exit to Menu** | **START + SELECT** |
+| **Save State** (Slot 0) (In-game) | **SELECT + D-pad Left** |
+| **Load State** (Slot 0) (In-game) | **SELECT + D-pad Right** |
+| **Exit to Menu** (In-game) | **START + SELECT** |
 
 ### Keyboard Configuration
 In the menu or during gameplay, use the following keys:
 
-| Sega Mega Drive | Keyboard Key |
-| :--- | :--- |
-| **D-pad (Up/Down/Left/Right)** | Arrow Keys |
-| **Button A** | `Z` |
-| **Button B** | `X` |
-| **Button C** | `C` |
-| **Button X** | `A` |
-| **Button Y** | `S` |
-| **Button Z** | `D` |
-| **Start Button** | `Enter` |
-| **Mode Button** | `Space` |
-| **Save State** (Slot 0) | **`F5`** |
-| **Load State** (Slot 0) | **`F8`** |
-| **Exit to Menu** | **`Escape`** |
+| Sega Mega Drive / Action | Keyboard Key | Description |
+| :--- | :--- | :--- |
+| **D-pad (Up/Down/Left/Right)** | Arrow Keys | Directional navigation |
+| **Button A** / Select | `Z` | Boot selected game |
+| **Button B** / Favorite | `X` | Add selected game to Favorites |
+| **Button C** / Unfavorite | `C` | Remove selected game from Favorites |
+| **Button X** | `A` | Mega Drive Button X |
+| **Button Y** | `S` | Mega Drive Button Y |
+| **Button Z** | `D` | Mega Drive Button Z |
+| **Start Button** | `Enter` | Start game |
+| **Mode Button** | `Space` | Mode selection |
+| **Save State** (Slot 0) | **`F5`** | Save state in-game |
+| **Load State** (Slot 0) | **`F8`** | Load state in-game |
+| **Exit to Menu** | **`Escape`** | Return to OSD menu |
 
 ---
 
@@ -120,6 +125,16 @@ Once Circle is compiled, you can build the emulator executable.
    
    Depending on the configured target, this will output a bootable image (e.g., `kernel8-32.img` for Raspberry Pi 3, or `kernel7l.img` for Raspberry Pi 4).
 
+### 3. Create a Release Package
+To package all files needed for the SD card into a single zip file:
+
+1. Return to the root directory and run the packaging script:
+   ```bash
+   ./create_release.sh [version]
+   ```
+   * Specifying a version (e.g. `./create_release.sh v1.0.0`) names the archive `mega-pi-release-v1.0.0.zip`.
+   * Running without arguments (e.g. `./create_release.sh`) auto-detects versioning using Git info.
+
 ---
 
 ## ⚙️ How to Run on a Raspberry Pi
@@ -133,3 +148,10 @@ Once Circle is compiled, you can build the emulator executable.
    * **EU Region**: `bios_CD_E.bin`
    * **JP Region**: `bios_CD_J.bin`
 6. Plug in a USB Gamepad and/or Keyboard, insert the SD card, and power on the Pi.
+
+---
+
+## 🤝 Credits & Acknowledgments
+
+*   **Circle Bare-Metal Framework**: Developed by **R. Stange** (rsta2). Circle provides the outstanding bare-metal C++ environment, USB controllers, scheduling, audio support, and Raspberry Pi interface drivers.
+*   **Picodrive Emulator**: Developed by **notaz** and community contributors. Picodrive provides the optimized Sega Mega Drive / Genesis / Mega CD emulation engine, Cyclone M68K CPU core, and Z80 assembly cores.

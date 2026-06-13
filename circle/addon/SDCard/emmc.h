@@ -83,6 +83,8 @@ public:
 
 	const u32 *GetID (void);
 
+	int IOCtl (unsigned long ulCmd, void *pData) override;
+
 private:
 #ifndef USE_SDHOST
 	int PowerOn (void);

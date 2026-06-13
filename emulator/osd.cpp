@@ -31,11 +31,12 @@ COSDMenu::COSDMenu(FATFS *pFileSystem)
     for (int i = 0; i < MAX_ROMS; i++) {
         m_RomFiles[i][0] = '\0';
         m_RomSizes[i] = 0;
+        m_RomFavorites[i] = FALSE;
         m_GenesisIndices[i] = -1;
         m_MegaCDIndices[i] = -1;
         m_FilteredIndices[i] = -1;
     }
-    for (int t = 0; t < 5; t++) {
+    for (int t = 0; t < 6; t++) {
         m_TabLabels[t][0] = '\0';
     }
 }
@@ -123,14 +124,18 @@ void COSDMenu::ScanRoms() {
             m_GenesisIndices[m_GenesisCount++] = i;
         }
     }
+    LoadFavorites();
 }
 
 void COSDMenu::CalculateTabLabels() {
     // Tab 0: "ALL"
     strcpy(m_TabLabels[0], "ALL");
 
-    // Tab 4: "Mega CD"
-    strcpy(m_TabLabels[4], "Mega CD");
+    // Tab 1: "FAV"
+    strcpy(m_TabLabels[1], "FAV");
+
+    // Tab 5: "Mega CD"
+    strcpy(m_TabLabels[5], "Mega CD");
 
     // Helper to get uppercase starting character or '#' for numbers/symbols
     auto get_char = [this](int genesis_idx) -> char {
@@ -206,15 +211,15 @@ void COSDMenu::CalculateTabLabels() {
         char c_start = get_char(start0);
         char c_end = get_char(end0);
         if (c_start == c_end) {
-            snprintf(m_TabLabels[1], sizeof(m_TabLabels[1]), "%c", c_start);
+            snprintf(m_TabLabels[2], sizeof(m_TabLabels[2]), "%c", c_start);
         } else {
-            snprintf(m_TabLabels[1], sizeof(m_TabLabels[1]), "%c-%c", c_start, c_end);
+            snprintf(m_TabLabels[2], sizeof(m_TabLabels[2]), "%c-%c", c_start, c_end);
         }
     } else {
-        strcpy(m_TabLabels[1], "A-G");
+        strcpy(m_TabLabels[2], "A-G");
     }
 
-    // Split 1 (Tab 2): letters > m_TabSplitK1 && <= m_TabSplitK2
+    // Split 1 (Tab 3): letters > m_TabSplitK1 && <= m_TabSplitK2
     int start1 = -1, end1 = -1;
     for (int i = 0; i < m_GenesisCount; i++) {
         char c = get_char(i);
@@ -228,15 +233,15 @@ void COSDMenu::CalculateTabLabels() {
         char c_start = get_char(start1);
         char c_end = get_char(end1);
         if (c_start == c_end) {
-            snprintf(m_TabLabels[2], sizeof(m_TabLabels[2]), "%c", c_start);
+            snprintf(m_TabLabels[3], sizeof(m_TabLabels[3]), "%c", c_start);
         } else {
-            snprintf(m_TabLabels[2], sizeof(m_TabLabels[2]), "%c-%c", c_start, c_end);
+            snprintf(m_TabLabels[3], sizeof(m_TabLabels[3]), "%c-%c", c_start, c_end);
         }
     } else {
-        strcpy(m_TabLabels[2], "H-P");
+        strcpy(m_TabLabels[3], "H-P");
     }
 
-    // Split 2 (Tab 3): letters > m_TabSplitK2
+    // Split 2 (Tab 4): letters > m_TabSplitK2
     int start2 = -1, end2 = -1;
     for (int i = 0; i < m_GenesisCount; i++) {
         char c = get_char(i);
@@ -250,12 +255,12 @@ void COSDMenu::CalculateTabLabels() {
         char c_start = get_char(start2);
         char c_end = get_char(end2);
         if (c_start == c_end) {
-            snprintf(m_TabLabels[3], sizeof(m_TabLabels[3]), "%c", c_start);
+            snprintf(m_TabLabels[4], sizeof(m_TabLabels[4]), "%c", c_start);
         } else {
-            snprintf(m_TabLabels[3], sizeof(m_TabLabels[3]), "%c-%c", c_start, c_end);
+            snprintf(m_TabLabels[4], sizeof(m_TabLabels[4]), "%c-%c", c_start, c_end);
         }
     } else {
-        strcpy(m_TabLabels[3], "Q-Z");
+        strcpy(m_TabLabels[4], "Q-Z");
     }
 }
 
@@ -267,7 +272,15 @@ void COSDMenu::BuildFilteredList() {
             m_FilteredIndices[m_FilteredCount++] = i;
         }
     }
-    else if (m_ActiveTab >= 1 && m_ActiveTab <= 3) {
+    else if (m_ActiveTab == 1) {
+        // FAV tab: include only favorited roms
+        for (int i = 0; i < m_RomCount; i++) {
+            if (m_RomFavorites[i]) {
+                m_FilteredIndices[m_FilteredCount++] = i;
+            }
+        }
+    }
+    else if (m_ActiveTab >= 2 && m_ActiveTab <= 4) {
         // Alphabetical Genesis tabs
         if (m_GenesisCount > 0) {
             auto get_char = [this](int genesis_idx) -> char {
@@ -285,7 +298,7 @@ void COSDMenu::BuildFilteredList() {
                 return 0; // '#' or others
             };
 
-            int part = m_ActiveTab - 1;
+            int part = m_ActiveTab - 2;
             for (int i = 0; i < m_GenesisCount; i++) {
                 char c = get_char(i);
                 int idx = get_letter_idx(c);
@@ -306,7 +319,7 @@ void COSDMenu::BuildFilteredList() {
             }
         }
     }
-    else if (m_ActiveTab == 4) {
+    else if (m_ActiveTab == 5) {
         // Mega CD tab: include only Mega CD indices
         for (int i = 0; i < m_MegaCDCount; i++) {
             m_FilteredIndices[m_FilteredCount++] = m_MegaCDIndices[i];
@@ -320,7 +333,7 @@ void COSDMenu::Update() {
     g_SharedState.menu_active_tab = m_ActiveTab;
 
     // Copy tab titles to shared state
-    for (int t = 0; t < 5; t++) {
+    for (int t = 0; t < 6; t++) {
         strncpy(g_SharedState.menu_tab_names[t], m_TabLabels[t], sizeof(g_SharedState.menu_tab_names[t]) - 1);
         g_SharedState.menu_tab_names[t][sizeof(g_SharedState.menu_tab_names[t]) - 1] = '\0';
     }
@@ -337,10 +350,11 @@ void COSDMenu::Update() {
         }
 
         unsigned size_kb = m_RomSizes[orig_idx] / 1024;
+        const char *prefix = m_RomFavorites[orig_idx] ? "* " : "  ";
         if (size_kb >= 1024) {
-            snprintf(g_SharedState.menu_lines[i], 80, "%s (%u MB)", temp, size_kb / 1024);
+            snprintf(g_SharedState.menu_lines[i], 80, "%s%s (%u MB)", prefix, temp, size_kb / 1024);
         } else {
-            snprintf(g_SharedState.menu_lines[i], 80, "%s (%u KB)", temp, size_kb);
+            snprintf(g_SharedState.menu_lines[i], 80, "%s%s (%u KB)", prefix, temp, size_kb);
         }
     }
 
@@ -372,7 +386,7 @@ void COSDMenu::MoveLeft() {
     if (m_ActiveTab > 0) {
         m_ActiveTab--;
     } else {
-        m_ActiveTab = 4;
+        m_ActiveTab = 5;
     }
     m_SelectedIndex = 0;
     BuildFilteredList();
@@ -380,7 +394,7 @@ void COSDMenu::MoveLeft() {
 }
 
 void COSDMenu::MoveRight() {
-    if (m_ActiveTab < 4) {
+    if (m_ActiveTab < 5) {
         m_ActiveTab++;
     } else {
         m_ActiveTab = 0;
@@ -402,4 +416,73 @@ unsigned COSDMenu::GetSelectedRomSize() {
         return 0;
     }
     return m_RomSizes[m_FilteredIndices[m_SelectedIndex]];
+}
+
+void COSDMenu::LoadFavorites() {
+    for (int i = 0; i < MAX_ROMS; i++) {
+        m_RomFavorites[i] = FALSE;
+    }
+
+    FIL file;
+    FRESULT res = f_open(&file, "SD:/roms/favorites.txt", FA_READ);
+    if (res != FR_OK) {
+        return;
+    }
+
+    char line[128];
+    while (f_gets(line, sizeof(line), &file) != nullptr) {
+        int len = strlen(line);
+        while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) {
+            line[len - 1] = '\0';
+            len--;
+        }
+        if (len == 0) continue;
+
+        for (int i = 0; i < m_RomCount; i++) {
+            if (strcmp(m_RomFiles[i], line) == 0) {
+                m_RomFavorites[i] = TRUE;
+                break;
+            }
+        }
+    }
+    f_close(&file);
+}
+
+void COSDMenu::SaveFavorites() {
+    FIL file;
+    FRESULT res = f_open(&file, "SD:/roms/favorites.txt", FA_WRITE | FA_CREATE_ALWAYS);
+    if (res != FR_OK) {
+        CLogger::Get()->Write("OSD", LogError, "Failed to open favorites.txt for writing: %d", res);
+        return;
+    }
+
+    for (int i = 0; i < m_RomCount; i++) {
+        if (m_RomFavorites[i]) {
+            char line[160];
+            snprintf(line, sizeof(line), "%s\n", m_RomFiles[i]);
+            UINT written = 0;
+            f_write(&file, line, strlen(line), &written);
+        }
+    }
+    f_close(&file);
+}
+
+void COSDMenu::FavoriteCurrent() {
+    if (m_FilteredCount == 0 || m_SelectedIndex < 0 || m_SelectedIndex >= m_FilteredCount) {
+        return;
+    }
+    int orig_idx = m_FilteredIndices[m_SelectedIndex];
+    m_RomFavorites[orig_idx] = TRUE;
+    SaveFavorites();
+    Update();
+}
+
+void COSDMenu::UnfavoriteCurrent() {
+    if (m_FilteredCount == 0 || m_SelectedIndex < 0 || m_SelectedIndex >= m_FilteredCount) {
+        return;
+    }
+    int orig_idx = m_FilteredIndices[m_SelectedIndex];
+    m_RomFavorites[orig_idx] = FALSE;
+    SaveFavorites();
+    Update();
 }

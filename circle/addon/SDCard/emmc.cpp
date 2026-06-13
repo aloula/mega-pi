@@ -2407,6 +2407,30 @@ int CEMMCDevice::EnsureDataMode (void)
 
 	u32 status = m_last_r0;
 	u32 cur_state = (status >> 9) & 0xf;
+
+	if (cur_state == 7)
+	{
+		assert (m_pTimer != 0);
+		unsigned nStartTicks = m_pTimer->GetClockTicks ();
+		unsigned nTimeoutTicks = 500000 * (CLOCKHZ / 1000000);
+		while (cur_state == 7)
+		{
+			if (m_pTimer->GetClockTicks () - nStartTicks >= nTimeoutTicks)
+			{
+				LogWrite (LogWarning, "EnsureDataMode() timeout waiting for programming state to end");
+				break;
+			}
+			m_pTimer->usDelay (100);
+			if (!IssueCommand (SEND_STATUS, m_card_rca << 16))
+			{
+				LogWrite (LogWarning, "EnsureDataMode() error sending CMD13 during programming poll");
+				break;
+			}
+			status = m_last_r0;
+			cur_state = (status >> 9) & 0xf;
+		}
+	}
+
 #ifdef EMMC_DEBUG2
 	LogWrite (LogDebug, "status %d", cur_state);
 #endif
@@ -2656,4 +2680,16 @@ void CEMMCDevice::LogWrite (TLogSeverity Severity, const char *pMessage, ...)
 const u32 *CEMMCDevice::GetID (void)
 {
 	return m_device_id;
+}
+
+int CEMMCDevice::IOCtl (unsigned long ulCmd, void *pData)
+{
+	if (ulCmd == DEVICE_IOCTL_SYNC)
+	{
+		PeripheralEntry ();
+		int nResult = EnsureDataMode ();
+		PeripheralExit ();
+		return nResult == 0 ? 0 : -1;
+	}
+	return CDevice::IOCtl (ulCmd, pData);
 }

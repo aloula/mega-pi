@@ -11,3 +11,7 @@
 .vscode/
 .idea/
 .DS_Store
+
+# Release packages
+mega-pi-release-*.zip
+
