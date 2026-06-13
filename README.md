@@ -128,12 +128,17 @@ Once Circle is compiled, you can build the emulator executable.
 ### 3. Create a Release Package
 To package all files needed for the SD card into a single zip file:
 
-1. Return to the root directory and run the packaging script:
+1. **Version Tracking**:
+   * A single source-of-truth [VERSION](file:///home/loula/src/mega-pi/VERSION) file in the root of the repository tracks the emulator's current version (e.g., `1.0.0`).
+   * The [emulator/Makefile](file:///home/loula/src/mega-pi/emulator/Makefile) automatically reads this file during compilation and passes it to the preprocessor via the `-DMEGAPI_VERSION` macro. This displays the version dynamically in the OSD menu title: `--- MEGA-PI BAREMETAL EMULATOR v1.0.0 ---`.
+
+2. **Run the Packaging Script**:
+   Return to the root directory and run the packaging script:
    ```bash
    ./create_release.sh [version]
    ```
-   * Specifying a version (e.g. `./create_release.sh v1.0.0`) names the archive `mega-pi-release-v1.0.0.zip`.
-   * Running without arguments (e.g. `./create_release.sh`) auto-detects versioning using Git info.
+   * **Automatic Versioning (Default)**: Running `./create_release.sh` without arguments reads the version from the [VERSION](file:///home/loula/src/mega-pi/VERSION) file, normalizes it with a `v` prefix, and creates a versioned archive, e.g., `mega-pi-release-v1.0.0.zip`. If the `VERSION` file is missing, it falls back to the latest Git tag/hash.
+   * **Explicit Versioning**: You can pass a specific version string as an argument, e.g., `./create_release.sh 1.1.0` or `./create_release.sh v1.1.0`. The script will normalize the string to ensure a single `v` prefix and package it as `mega-pi-release-v1.1.0.zip`.
 
 ---
 

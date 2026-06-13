@@ -5,24 +5,34 @@ set -e
 
 echo "=== Packaging MEGA-PI Release ==="
 
-# Get version from argument, git tag/hash, or fallback
-if [ -n "$1" ]; then
-    VERSION="$1"
-else
-    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        VERSION=$(git describe --tags --always --dirty 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)
-    fi
-    if [ -z "$VERSION" ]; then
-        VERSION="v1.0.0"
-    fi
-fi
-
-echo "Version selected: $VERSION"
-
 # Define paths
 ROOT_DIR="$(pwd)"
 EMU_DIR="$ROOT_DIR/emulator"
 RELEASE_DIR="$ROOT_DIR/release_temp"
+
+# Get version from argument, VERSION file, git tag/hash, or fallback
+if [ -n "$1" ]; then
+    RAW_VERSION="$1"
+elif [ -f "$ROOT_DIR/VERSION" ]; then
+    RAW_VERSION="$(cat "$ROOT_DIR/VERSION" | xargs)"
+else
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        RAW_VERSION=$(git describe --tags --always --dirty 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)
+    fi
+    if [ -z "$RAW_VERSION" ]; then
+        RAW_VERSION="1.0.0"
+    fi
+fi
+
+# Ensure version has a leading 'v' prefix
+if [ "${RAW_VERSION:0:1}" = "v" ]; then
+    VERSION="$RAW_VERSION"
+else
+    VERSION="v$RAW_VERSION"
+fi
+
+echo "Version selected: $VERSION"
+
 ZIP_NAME="$ROOT_DIR/mega-pi-release-$VERSION.zip"
 
 # Ensure we are in the root directory

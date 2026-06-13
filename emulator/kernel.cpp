@@ -392,7 +392,14 @@ void CKernel::RunVideoDomain() {
                 DrawBox(pBackBuffer, SCREEN_WIDTH, x1, y1, x2, y2, COLOR15(16, 16, 16), 2);
 
                 // Draw Title (pure white)
-                DrawString(pBackBuffer, SCREEN_WIDTH, "--- MEGA-PI BAREMETAL EMULATOR ---", 180, y1 + 15, COLOR15(31, 31, 31), 0);
+#ifndef MEGAPI_VERSION
+#define MEGAPI_VERSION "1.0.0"
+#endif
+                char title_str[64];
+                snprintf(title_str, sizeof(title_str), "--- MEGA-PI BAREMETAL EMULATOR v%s ---", MEGAPI_VERSION);
+                int title_w = strlen(title_str) * 8;
+                int title_x = (SCREEN_WIDTH - title_w) / 2;
+                DrawString(pBackBuffer, SCREEN_WIDTH, title_str, title_x, y1 + 15, COLOR15(31, 31, 31), 0);
                 
                 if (num_lines > 0) {
                     char count_str[32];
