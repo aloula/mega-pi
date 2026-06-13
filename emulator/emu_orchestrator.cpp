@@ -27,21 +27,6 @@ static const char FromOrchestrator[] = "orchestrator";
 // Audio temp buffer for Picodrive output
 static s16 g_AudioTempBuf[44100 / 50 * 2];
 
-// Scanline callbacks for Picodrive
-static int EmuScanBegin(unsigned int line) {
-    if (line < 240) {
-        // Point destination buffer directly to our shared frame buffer line
-        Pico.est.DrawLineDest = (char *)(g_SharedState.emu_frame_buffer + line * 320);
-    } else {
-        Pico.est.DrawLineDest = nullptr;
-    }
-    return 0;
-}
-
-static int EmuScanEnd(unsigned int line) {
-    return 0;
-}
-
 // Sound callback
 static void EmuSoundCallback(int len) {
     // len is in bytes. Interleaved stereo 16-bit PCM (4 bytes per sample)
@@ -82,7 +67,7 @@ extern "C" int plat_mem_set_exec(void *ptr, size_t size) {
     return 0;
 }
 
-CEmuOrchestrator::CEmuOrchestrator(CFATFileSystem *pFileSystem)
+CEmuOrchestrator::CEmuOrchestrator(FATFS *pFileSystem)
     : m_pFileSystem(pFileSystem),
       m_pRomBuffer(nullptr),
       m_bRomLoaded(FALSE)
@@ -120,17 +105,19 @@ boolean CEmuOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
 
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "Loading ROM: %s (%u bytes)", pRomName, nRomSize);
     
-    unsigned hFile = m_pFileSystem->FileOpen(pRomName);
-    if (!hFile) {
-        CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to open ROM file: %s", pRomName);
+    FIL file;
+    FRESULT res = f_open(&file, pRomName, FA_READ);
+    if (res != FR_OK) {
+        CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to open ROM file: %s (error %d)", pRomName, res);
         return FALSE;
     }
 
-    unsigned bytesRead = m_pFileSystem->FileRead(hFile, m_pRomBuffer, nRomSize);
-    m_pFileSystem->FileClose(hFile);
+    UINT bytesRead = 0;
+    res = f_read(&file, m_pRomBuffer, nRomSize, &bytesRead);
+    f_close(&file);
 
-    if (bytesRead != nRomSize) {
-        CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to read whole ROM. Read %u of %u bytes", bytesRead, nRomSize);
+    if (res != FR_OK || bytesRead != nRomSize) {
+        CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to read whole ROM. Read %u of %u bytes (error %d)", bytesRead, nRomSize, res);
         return FALSE;
     }
 
@@ -146,12 +133,33 @@ boolean CEmuOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     strncpy(m_CurrentRomName, pRomName, sizeof(m_CurrentRomName) - 1);
     m_CurrentRomName[sizeof(m_CurrentRomName) - 1] = '\0';
 
-    // Set draw callbacks
+    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Configuring emulator draw formats, controls, and power...");
+    
+    // Set draw format
     PicoDrawSetOutFormat(PDF_RGB555, 0);
-    PicoDrawSetCallbacks(EmuScanBegin, EmuScanEnd);
 
-    // Reset emulator
-    PicoReset();
+    // Configure input ports as 6-button gamepads
+    PicoSetInputDevice(0, PICO_INPUT_PAD_6BTN);
+    PicoSetInputDevice(1, PICO_INPUT_PAD_6BTN);
+
+    // Power on and reset
+    PicoPower();
+    PsndRerate(0);
+
+    // Clear input registers
+    for (int i = 0; i < 4; ++i) {
+        PicoIn.pad[i] = 0;
+        PicoIn.padInt[i] = 0;
+    }
+
+    // Reset gamepad handshake phase state
+    Pico.m.padTHPhase[0] = 0;
+    Pico.m.padTHPhase[1] = 0;
+    Pico.m.padDelay[0] = 0;
+    Pico.m.padDelay[1] = 0;
+    Pico.m.frame_count = 0;
+
+    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Emulator power-on and reset completed!");
 
     m_bRomLoaded = TRUE;
     return TRUE;
@@ -160,12 +168,35 @@ boolean CEmuOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
 void CEmuOrchestrator::RunFrame() {
     if (!m_bRomLoaded) return;
 
-    // Map global input pad state into PicoIn
-    PicoIn.pad[0] = g_SharedState.pad1;
-    PicoIn.pad[1] = g_SharedState.pad2;
+    static int frame_count = 0;
+    if (frame_count < 10) {
+        CLogger::Get()->Write(FromOrchestrator, LogNotice, "RunFrame starting frame %d...", frame_count);
+    }
+
+    // Map global input pad state into PicoIn, masking inputs when START + SELECT combo is held
+    u16 pad1 = g_SharedState.pad1;
+    if ((pad1 & (1 << 7)) && (pad1 & (1 << 11))) {
+        pad1 = 0;
+    }
+    PicoIn.pad[0] = pad1;
+
+    u16 pad2 = g_SharedState.pad2;
+    if ((pad2 & (1 << 7)) && (pad2 & (1 << 11))) {
+        pad2 = 0;
+    }
+    PicoIn.pad[1] = pad2;
+
+    // Set Picodrive draw output buffer with line stride (320 pixels * 2 bytes = 640 bytes pitch)
+    PicoDrawSetOutBuf(g_SharedState.emu_frame_buffer, 320 * 2);
+    PicoDraw2SetOutBuf(g_SharedState.emu_frame_buffer, 320 * 2);
 
     // Run emulator frame
     PicoFrame();
+
+    if (frame_count < 10) {
+        CLogger::Get()->Write(FromOrchestrator, LogNotice, "RunFrame finished frame %d.", frame_count);
+        frame_count++;
+    }
 
     // Signal Core 1 (Video) that frame is ready
     DataMemBarrier();

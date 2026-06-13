@@ -1,6 +1,8 @@
 #include "osd.h"
 #include <circle/string.h>
+#include <circle/logger.h>
 #include <string.h>
+#include <stdio.h>
 
 static int my_strcasecmp(const char *s1, const char *s2) {
     while (*s1 && *s2) {
@@ -15,7 +17,7 @@ static int my_strcasecmp(const char *s1, const char *s2) {
     return (unsigned char)*s1 - (unsigned char)*s2;
 }
 
-COSDMenu::COSDMenu(CFATFileSystem *pFileSystem)
+COSDMenu::COSDMenu(FATFS *pFileSystem)
     : m_pFileSystem(pFileSystem),
       m_RomCount(0),
       m_SelectedIndex(0)
@@ -36,27 +38,32 @@ boolean COSDMenu::Initialize() {
 
 void COSDMenu::ScanRoms() {
     m_RomCount = 0;
-    TDirentry Direntry;
-    TFindCurrentEntry CurrentEntry;
-    unsigned nEntry = m_pFileSystem->RootFindFirst(&Direntry, &CurrentEntry);
-    while (nEntry != 0 && m_RomCount < MAX_ROMS) {
-        if (!(Direntry.nAttributes & FS_ATTRIB_SYSTEM)) {
-            // Check extension (case insensitive)
-            const char *pDot = strrchr(Direntry.chTitle, '.');
+    DIR dir;
+    FILINFO fileInfo;
+    FRESULT res = f_findfirst(&dir, &fileInfo, "SD:/roms", "*");
+    if (res != FR_OK) {
+        CLogger::Get()->Write("OSD", LogError, "f_findfirst failed on SD:/roms: %d", res);
+        return;
+    }
+
+    while (res == FR_OK && fileInfo.fname[0] != '\0' && m_RomCount < MAX_ROMS) {
+        if (!(fileInfo.fattrib & AM_DIR) && !(fileInfo.fattrib & (AM_HID | AM_SYS))) {
+            const char *pDot = strrchr(fileInfo.fname, '.');
             if (pDot != 0) {
                 pDot++;
                 if (my_strcasecmp(pDot, "bin") == 0 ||
                     my_strcasecmp(pDot, "md") == 0 ||
                     my_strcasecmp(pDot, "gen") == 0) {
-                    strncpy(m_RomFiles[m_RomCount], Direntry.chTitle, 63);
-                    m_RomFiles[m_RomCount][63] = '\0';
-                    m_RomSizes[m_RomCount] = Direntry.nSize;
+                    strncpy(m_RomFiles[m_RomCount], fileInfo.fname, sizeof(m_RomFiles[m_RomCount]) - 1);
+                    m_RomFiles[m_RomCount][sizeof(m_RomFiles[m_RomCount]) - 1] = '\0';
+                    m_RomSizes[m_RomCount] = fileInfo.fsize;
                     m_RomCount++;
                 }
             }
         }
-        nEntry = m_pFileSystem->RootFindNext(&Direntry, &CurrentEntry);
+        res = f_findnext(&dir, &fileInfo);
     }
+    f_closedir(&dir);
 }
 
 void COSDMenu::Update() {
@@ -64,8 +71,17 @@ void COSDMenu::Update() {
     g_SharedState.menu_selected_idx = m_SelectedIndex;
 
     for (int i = 0; i < m_RomCount; i++) {
-        strncpy(g_SharedState.menu_lines[i], m_RomFiles[i], 79);
-        g_SharedState.menu_lines[i][79] = '\0';
+        char temp[80];
+        strncpy(temp, m_RomFiles[i], sizeof(temp) - 1);
+        temp[sizeof(temp) - 1] = '\0';
+        
+        char *pDot = strrchr(temp, '.');
+        if (pDot != nullptr) {
+            *pDot = '\0';
+        }
+        
+        unsigned size_kb = m_RomSizes[i] / 1024;
+        snprintf(g_SharedState.menu_lines[i], 80, "%s (%u KB)", temp, size_kb);
     }
     g_SharedState.menu_needs_redraw = TRUE;
 }
