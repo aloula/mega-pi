@@ -1,1 +1,1 @@
-fast=true logdev=tty1 loglevel=3
+fast=true logdev=tty1 loglevel=3 snddevice=sndhdmi
