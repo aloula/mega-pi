@@ -265,6 +265,7 @@ enum media_type_e PicoLoadMedia(const char *filename,
 {
   const char *rom_fname = filename;
   enum media_type_e media_type;
+  PicoIn.regionOverride = 0; // reset region override for new media
   enum cd_track_type cd_img_type = CT_UNKNOWN;
   pm_file *rom_file = NULL;
   unsigned char *rom_data = NULL;
@@ -290,6 +291,7 @@ enum media_type_e PicoLoadMedia(const char *filename,
     cd_img_type = PicoCdCheck(filename, &cd_region);
     if ((int)cd_img_type >= 0 && cd_img_type != CT_UNKNOWN)
     {
+      PicoIn.regionOverride = cd_region;
       // valid CD image, invalidate potential cartridge data
       rom = NULL;
 
