@@ -116,6 +116,10 @@ struct chd_struct {
   int hunkunits;
   u8 *hunk;
   int hunknum;
+  u8 *hunk_data;
+  int hunknum_data;
+  u8 *hunk_audio;
+  int hunknum_audio;
 };
 #endif
 
@@ -266,8 +270,9 @@ cso_failed:
     chd = calloc(1, sizeof(*chd));
     if (chd == NULL)
       goto chd_failed;
-    chd->hunk = (u8 *)malloc(head->hunkbytes);
-    if (!chd->hunk)
+    chd->hunk_data = (u8 *)malloc(head->hunkbytes);
+    chd->hunk_audio = (u8 *)malloc(head->hunkbytes);
+    if (!chd->hunk_data || !chd->hunk_audio)
       goto chd_failed;
 
     chd->chd = cf;
@@ -276,6 +281,9 @@ cso_failed:
     chd->sectorsize = CD_MAX_SECTOR_DATA; // default to RAW mode
 
     chd->fpos = 0;
+    chd->hunknum_data = -1;
+    chd->hunknum_audio = -1;
+    chd->hunk = chd->hunk_data;
     chd->hunknum = -1;
 
     chd->file.file = chd;
@@ -287,7 +295,11 @@ cso_failed:
 
 chd_failed:
     /* invalid CHD file */
-    if (chd != NULL) free(chd);
+    if (chd != NULL) {
+      if (chd->hunk_data) free(chd->hunk_data);
+      if (chd->hunk_audio) free(chd->hunk_audio);
+      free(chd);
+    }
     if (cf != NULL) chd_close(cf);
     return NULL;
   }
@@ -339,6 +351,16 @@ static size_t _pm_read_chd(void *ptr, size_t bytes, pm_file *stream, int is_audi
 
   if (stream->type == PMT_CHD) {
     struct chd_struct *chd = stream->file;
+    
+    // Select cache buffer
+    if (is_audio) {
+      chd->hunk = chd->hunk_audio;
+      chd->hunknum = chd->hunknum_audio;
+    } else {
+      chd->hunk = chd->hunk_data;
+      chd->hunknum = chd->hunknum_data;
+    }
+
     // calculate sector and offset in sector
     int sectsz = is_audio ? CD_MAX_SECTOR_DATA : chd->sectorsize;
     int sector = chd->fpos / sectsz;
@@ -394,6 +416,13 @@ static size_t _pm_read_chd(void *ptr, size_t bytes, pm_file *stream, int is_audi
           hunknum ++;
         }
       }
+    }
+
+    // Save updated cache state
+    if (is_audio) {
+      chd->hunknum_audio = chd->hunknum;
+    } else {
+      chd->hunknum_data = chd->hunknum;
     }
   }
 
@@ -650,8 +679,10 @@ int pm_close(pm_file *fp)
   {
     struct chd_struct *chd = fp->file;
     chd_close(chd->chd);
-    if (chd->hunk)
-      free(chd->hunk);
+    if (chd->hunk_data)
+      free(chd->hunk_data);
+    if (chd->hunk_audio)
+      free(chd->hunk_audio);
   }
 #endif
   else
