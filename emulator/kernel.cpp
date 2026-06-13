@@ -488,8 +488,11 @@ void CKernel::RunVideoDomain() {
                 // Draw separator before instructions (dark gray)
                 DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y2 - 28, x2 - 20, y2 - 27, COLOR15(6, 6, 6));
 
-                // Draw instructions (medium-dark gray)
-                DrawString(pBackBuffer, SCREEN_WIDTH, "UP/DOWN: ROMs  |  LEFT/RIGHT: Tabs  |  A/START: Boot  |  START+SELECT: Exit", x1 + 20, y2 - 20, COLOR15(12, 12, 12), 0);
+                // Center instructions footer inside the screen limits
+                const char *footer_text = "UP/DN: ROMs | L/R: Tabs | A: Boot | START+SELECT: Exit";
+                int footer_w = strlen(footer_text) * 8;
+                int footer_x = (SCREEN_WIDTH - footer_w) / 2;
+                DrawString(pBackBuffer, SCREEN_WIDTH, footer_text, footer_x, y2 - 20, COLOR15(12, 12, 12), 0);
 
                 // Copy fully rendered backbuffer to the active framebuffer in a single fast operation
                 memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));

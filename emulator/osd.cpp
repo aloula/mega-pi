@@ -24,7 +24,9 @@ COSDMenu::COSDMenu(FATFS *pFileSystem)
       m_GenesisCount(0),
       m_MegaCDCount(0),
       m_FilteredCount(0),
-      m_ActiveTab(0)
+      m_ActiveTab(0),
+      m_TabSplitK1(8),
+      m_TabSplitK2(16)
 {
     for (int i = 0; i < MAX_ROMS; i++) {
         m_RomFiles[i][0] = '\0';
@@ -141,15 +143,68 @@ void COSDMenu::CalculateTabLabels() {
         return '#';
     };
 
-    // Calculate equal partitions of the sorted Genesis games
-    int size1 = m_GenesisCount / 3;
-    int size2 = m_GenesisCount / 3;
-    int size3 = m_GenesisCount - (size1 + size2);
+    // Helper to get letter index (0 to 26)
+    auto get_letter_idx = [](char c) -> int {
+        if (c >= 'A' && c <= 'Z') return c - 'A' + 1; // 1 to 26
+        return 0; // '#' or others
+    };
 
-    // Tab 1: Alpha 1
-    if (size1 > 0) {
-        char c_start = get_char(0);
-        char c_end = get_char(size1 - 1);
+    // Count games per letter
+    int letter_counts[27] = {0};
+    for (int i = 0; i < m_GenesisCount; i++) {
+        char c = get_char(i);
+        int idx = get_letter_idx(c);
+        if (idx >= 0 && idx < 27) {
+            letter_counts[idx]++;
+        }
+    }
+
+    // Optimize k1 and k2 to divide games as equally as possible
+    m_TabSplitK1 = 8;  // Default: #-H
+    m_TabSplitK2 = 16; // Default: I-P, Q-Z
+    int min_diff = 1000000;
+    
+    if (m_GenesisCount > 0) {
+        for (int k1 = 0; k1 < 25; k1++) {
+            for (int k2 = k1 + 1; k2 < 26; k2++) {
+                int size0 = 0;
+                for (int i = 0; i <= k1; i++) size0 += letter_counts[i];
+                
+                int size1 = 0;
+                for (int i = k1 + 1; i <= k2; i++) size1 += letter_counts[i];
+                
+                int size2 = 0;
+                for (int i = k2 + 1; i < 27; i++) size2 += letter_counts[i];
+                
+                int ideal = m_GenesisCount / 3;
+                int d0 = size0 - ideal; if (d0 < 0) d0 = -d0;
+                int d1 = size1 - ideal; if (d1 < 0) d1 = -d1;
+                int d2 = size2 - ideal; if (d2 < 0) d2 = -d2;
+                int diff = d0 + d1 + d2;
+                
+                if (diff < min_diff) {
+                    min_diff = diff;
+                    m_TabSplitK1 = k1;
+                    m_TabSplitK2 = k2;
+                }
+            }
+        }
+    }
+
+    // Now generate labels based on the actual games present in each split
+    // Split 0 (Tab 1): letters <= m_TabSplitK1
+    int start0 = -1, end0 = -1;
+    for (int i = 0; i < m_GenesisCount; i++) {
+        char c = get_char(i);
+        int idx = get_letter_idx(c);
+        if (idx <= m_TabSplitK1) {
+            if (start0 == -1) start0 = i;
+            end0 = i;
+        }
+    }
+    if (start0 != -1 && end0 != -1) {
+        char c_start = get_char(start0);
+        char c_end = get_char(end0);
         if (c_start == c_end) {
             snprintf(m_TabLabels[1], sizeof(m_TabLabels[1]), "%c", c_start);
         } else {
@@ -159,10 +214,19 @@ void COSDMenu::CalculateTabLabels() {
         strcpy(m_TabLabels[1], "A-G");
     }
 
-    // Tab 2: Alpha 2
-    if (size2 > 0) {
-        char c_start = get_char(size1);
-        char c_end = get_char(size1 + size2 - 1);
+    // Split 1 (Tab 2): letters > m_TabSplitK1 && <= m_TabSplitK2
+    int start1 = -1, end1 = -1;
+    for (int i = 0; i < m_GenesisCount; i++) {
+        char c = get_char(i);
+        int idx = get_letter_idx(c);
+        if (idx > m_TabSplitK1 && idx <= m_TabSplitK2) {
+            if (start1 == -1) start1 = i;
+            end1 = i;
+        }
+    }
+    if (start1 != -1 && end1 != -1) {
+        char c_start = get_char(start1);
+        char c_end = get_char(end1);
         if (c_start == c_end) {
             snprintf(m_TabLabels[2], sizeof(m_TabLabels[2]), "%c", c_start);
         } else {
@@ -172,10 +236,19 @@ void COSDMenu::CalculateTabLabels() {
         strcpy(m_TabLabels[2], "H-P");
     }
 
-    // Tab 3: Alpha 3
-    if (size3 > 0) {
-        char c_start = get_char(size1 + size2);
-        char c_end = get_char(m_GenesisCount - 1);
+    // Split 2 (Tab 3): letters > m_TabSplitK2
+    int start2 = -1, end2 = -1;
+    for (int i = 0; i < m_GenesisCount; i++) {
+        char c = get_char(i);
+        int idx = get_letter_idx(c);
+        if (idx > m_TabSplitK2) {
+            if (start2 == -1) start2 = i;
+            end2 = i;
+        }
+    }
+    if (start2 != -1 && end2 != -1) {
+        char c_start = get_char(start2);
+        char c_end = get_char(end2);
         if (c_start == c_end) {
             snprintf(m_TabLabels[3], sizeof(m_TabLabels[3]), "%c", c_start);
         } else {
@@ -197,25 +270,39 @@ void COSDMenu::BuildFilteredList() {
     else if (m_ActiveTab >= 1 && m_ActiveTab <= 3) {
         // Alphabetical Genesis tabs
         if (m_GenesisCount > 0) {
+            auto get_char = [this](int genesis_idx) -> char {
+                if (genesis_idx < 0 || genesis_idx >= m_GenesisCount) return '?';
+                const char *name = m_RomFiles[m_GenesisIndices[genesis_idx]];
+                if (name == nullptr || *name == '\0') return '?';
+                char c = *name;
+                if (c >= 'a' && c <= 'z') c -= 32;
+                if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) return c;
+                return '#';
+            };
+
+            auto get_letter_idx = [](char c) -> int {
+                if (c >= 'A' && c <= 'Z') return c - 'A' + 1; // 1 to 26
+                return 0; // '#' or others
+            };
+
             int part = m_ActiveTab - 1;
-            int size1 = m_GenesisCount / 3;
-            int size2 = m_GenesisCount / 3;
-            int start_idx = 0;
-            int end_idx = 0;
-
-            if (part == 0) {
-                start_idx = 0;
-                end_idx = size1 - 1;
-            } else if (part == 1) {
-                start_idx = size1;
-                end_idx = size1 + size2 - 1;
-            } else if (part == 2) {
-                start_idx = size1 + size2;
-                end_idx = m_GenesisCount - 1;
-            }
-
-            for (int i = start_idx; i <= end_idx && i < m_GenesisCount; i++) {
-                m_FilteredIndices[m_FilteredCount++] = m_GenesisIndices[i];
+            for (int i = 0; i < m_GenesisCount; i++) {
+                char c = get_char(i);
+                int idx = get_letter_idx(c);
+                
+                if (part == 0) {
+                    if (idx <= m_TabSplitK1) {
+                        m_FilteredIndices[m_FilteredCount++] = m_GenesisIndices[i];
+                    }
+                } else if (part == 1) {
+                    if (idx > m_TabSplitK1 && idx <= m_TabSplitK2) {
+                        m_FilteredIndices[m_FilteredCount++] = m_GenesisIndices[i];
+                    }
+                } else if (part == 2) {
+                    if (idx > m_TabSplitK2) {
+                        m_FilteredIndices[m_FilteredCount++] = m_GenesisIndices[i];
+                    }
+                }
             }
         }
     }

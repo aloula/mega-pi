@@ -44,6 +44,8 @@ private:
 
     int m_ActiveTab; // 0 = ALL, 1 = Split 1, 2 = Split 2, 3 = Split 3, 4 = Mega CD
     char m_TabLabels[5][16];
+    int m_TabSplitK1;
+    int m_TabSplitK2;
 };
 
 #endif
