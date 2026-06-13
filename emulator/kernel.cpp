@@ -440,7 +440,7 @@ void CKernel::RunVideoDomain() {
                     DrawString(pBackBuffer, SCREEN_WIDTH, "No ROMs found! Copy ROM files to SD card.", 150, 180, COLOR15(31, 10, 10), 0);
                 } else {
                     // List ROM files with centered viewport scrolling (mega-pi-metal style)
-                    int view_size = 15;
+                    int view_size = 17;
                     int start_i = 0;
                     if (num_lines > view_size) {
                         start_i = selected - view_size / 2;
@@ -450,7 +450,7 @@ void CKernel::RunVideoDomain() {
                         }
                     }
 
-                    int start_y = y1 + 84;
+                    int start_y = y1 + 79;
                     for (int v = 0; v < view_size && (start_i + v) < num_lines; v++) {
                         int i = start_i + v;
                         int row_y = start_y + v * 20;
