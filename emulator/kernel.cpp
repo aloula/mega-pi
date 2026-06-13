@@ -262,11 +262,20 @@ void CKernel::RunOrchestrator() {
                 repeatPhase = FALSE;
             }
 
+            boolean doLeft = (pressed & (1 << 2)) != 0;
+            boolean doRight = (pressed & (1 << 3)) != 0;
+
             if (doUp) {
                 m_pOSDMenu->MoveUp();
             }
             if (doDown) {
                 m_pOSDMenu->MoveDown();
+            }
+            if (doLeft) {
+                m_pOSDMenu->MoveLeft();
+            }
+            if (doRight) {
+                m_pOSDMenu->MoveRight();
             }
 
             if ((pressed & ((1 << 6) | (1 << 7))) && start_released) { // A or Start -> Select ROM
@@ -387,14 +396,51 @@ void CKernel::RunVideoDomain() {
                     DrawString(pBackBuffer, SCREEN_WIDTH, count_str, x2 - 100, y1 + 15, COLOR15(31, 31, 31), COLOR15(2, 6, 2));
                 }
                 
-                // Draw separator (dark gray)
+                // Draw separator 1 (dark gray)
                 DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 40, x2 - 20, y1 + 41, COLOR15(6, 6, 6));
 
+                // Draw 5 tabs
+                int active_tab = g_SharedState.menu_active_tab;
+                int tab_start_x = x1 + 10; // 50
+                int tab_spacing = 10;
+                int tab_width = 100;
+                int tab_y1 = y1 + 46;
+                int tab_y2 = y1 + 68;
+
+                for (int t = 0; t < 5; t++) {
+                    int tx1 = tab_start_x + t * (tab_width + tab_spacing);
+                    int tx2 = tx1 + tab_width;
+                    
+                    u16 bg_color, border_color, text_color;
+                    if (t == active_tab) {
+                        bg_color = COLOR15(8, 20, 8);      // highlight card background (lighter green)
+                        border_color = COLOR15(31, 31, 31); // white border
+                        text_color = COLOR15(31, 31, 31);   // white text
+                    } else {
+                        bg_color = COLOR15(3, 8, 3);        // darker green background
+                        border_color = COLOR15(6, 12, 6);   // dark green border
+                        text_color = COLOR15(12, 12, 12);   // gray text
+                    }
+                    
+                    // Draw tab box
+                    DrawRect(pBackBuffer, SCREEN_WIDTH, tx1, tab_y1, tx2, tab_y2, bg_color);
+                    DrawBox(pBackBuffer, SCREEN_WIDTH, tx1, tab_y1, tx2, tab_y2, border_color, 1);
+                    
+                    // Center tab title text
+                    const char *tab_name = g_SharedState.menu_tab_names[t];
+                    int text_w = strlen(tab_name) * 8;
+                    int text_x = tx1 + (tab_width - text_w) / 2;
+                    DrawString(pBackBuffer, SCREEN_WIDTH, tab_name, text_x, y1 + 49, text_color, bg_color);
+                }
+
+                // Draw separator 2 (dark gray)
+                DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 75, x2 - 20, y1 + 76, COLOR15(6, 6, 6));
+
                 if (num_lines == 0) {
-                    DrawString(pBackBuffer, SCREEN_WIDTH, "No ROMs found! Copy .bin, .md, .gen files to SD card.", 110, 150, COLOR15(31, 10, 10), 0);
+                    DrawString(pBackBuffer, SCREEN_WIDTH, "No ROMs found! Copy ROM files to SD card.", 150, 180, COLOR15(31, 10, 10), 0);
                 } else {
                     // List ROM files with centered viewport scrolling (mega-pi-metal style)
-                    int view_size = 18;
+                    int view_size = 15;
                     int start_i = 0;
                     if (num_lines > view_size) {
                         start_i = selected - view_size / 2;
@@ -404,7 +450,7 @@ void CKernel::RunVideoDomain() {
                         }
                     }
 
-                    int start_y = y1 + 55;
+                    int start_y = y1 + 84;
                     for (int v = 0; v < view_size && (start_i + v) < num_lines; v++) {
                         int i = start_i + v;
                         int row_y = start_y + v * 20;
@@ -443,7 +489,7 @@ void CKernel::RunVideoDomain() {
                 DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y2 - 28, x2 - 20, y2 - 27, COLOR15(6, 6, 6));
 
                 // Draw instructions (medium-dark gray)
-                DrawString(pBackBuffer, SCREEN_WIDTH, "UP/DOWN: Navigate  |  A/START: Boot ROM  |  START+SELECT: Menu", x1 + 30, y2 - 20, COLOR15(12, 12, 12), 0);
+                DrawString(pBackBuffer, SCREEN_WIDTH, "UP/DOWN: ROMs  |  LEFT/RIGHT: Tabs  |  A/START: Boot  |  START+SELECT: Exit", x1 + 20, y2 - 20, COLOR15(12, 12, 12), 0);
 
                 // Copy fully rendered backbuffer to the active framebuffer in a single fast operation
                 memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));

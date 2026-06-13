@@ -18,6 +18,8 @@ struct SharedState {
     char menu_lines[MAX_ROMS][80] __attribute__((aligned(64)));
     int menu_num_lines;
     int menu_selected_idx;
+    char menu_tab_names[5][16] __attribute__((aligned(64)));
+    int menu_active_tab;
 
     // Emulator frame buffer (320x320, RGB565) to support full PAL + overscan start lines
     u16 emu_frame_buffer[320 * 320] __attribute__((aligned(64)));
