@@ -289,9 +289,9 @@ enum media_type_e PicoLoadMedia(const char *filename,
   {
     // check for MegaCD image
     cd_img_type = PicoCdCheck(filename, &cd_region);
+    lprintf("PicoLoadMedia: PicoCdCheck returned %d, cd_region=%d\n", cd_img_type, cd_region);
     if ((int)cd_img_type >= 0 && cd_img_type != CT_UNKNOWN)
     {
-      PicoIn.regionOverride = cd_region;
       // valid CD image, invalidate potential cartridge data
       rom = NULL;
 
@@ -299,6 +299,8 @@ enum media_type_e PicoLoadMedia(const char *filename,
       rom_fname = NULL;
       if (get_bios_filename != NULL)
         rom_fname = get_bios_filename(&cd_region, filename);
+      PicoIn.regionOverride = cd_region;
+      lprintf("PicoLoadMedia: after get_bios_filename, cd_region=%d, regionOverride=%d\n", cd_region, PicoIn.regionOverride);
       rom_file = pm_open(rom_fname);
 
       // ask frontend if there's an MSU/MD+ rom

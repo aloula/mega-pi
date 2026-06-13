@@ -161,6 +161,9 @@ PICO_INTERNAL void PicoDetectRegion(void)
 
   Pico.m.hardware=(unsigned char)hw; 
   Pico.m.pal=pal;
+
+  extern void lprintf(const char *fmt, ...);
+  lprintf("PicoDetectRegion: PicoIn.regionOverride=%d, support=%d, hw=%02x, pal=%d, AHW=%08x\n", PicoIn.regionOverride, support, hw, pal, PicoIn.AHW);
 }
 
 int PicoReset(void)
