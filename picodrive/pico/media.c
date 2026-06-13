@@ -323,6 +323,7 @@ enum media_type_e PicoLoadMedia(const char *filename,
         PicoCreateMCD(rom_data, rom_size);
 
         PicoCartUnload();
+        rom_data = NULL;
         pm_close(rom_file);
         rom_file = NULL;
         rom_size = 0;

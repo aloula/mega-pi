@@ -19,7 +19,7 @@ struct CFileWrapper {
     boolean in_use;
 };
 
-static CFileWrapper s_OpenFiles[8];
+static CFileWrapper s_OpenFiles[64];
 
 extern "C" {
 
@@ -39,7 +39,7 @@ char *strdup(const char *s) {
 FILE *fopen(const char *pathname, const char *mode) {
     // Find a free wrapper slot
     int slot = -1;
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 64; i++) {
         if (!s_OpenFiles[i].in_use) {
             slot = i;
             break;
