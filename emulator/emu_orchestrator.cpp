@@ -180,7 +180,7 @@ boolean CEmuOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
         // For CD images, we do not load them into memory.
         // Picodrive reads CD tracks directly from the file system.
         enum media_type_e type = PicoLoadMedia(pRomName, nullptr, 0, nullptr, GetBiosFilename, nullptr, nullptr);
-        if (type == PM_ERROR || type == PM_BAD_CD_NO_BIOS) {
+        if (type <= 0) {
             CLogger::Get()->Write(FromOrchestrator, LogError, "Picodrive failed to load CD image: %s (type %d)", pRomName, type);
             return FALSE;
         }
@@ -210,8 +210,8 @@ boolean CEmuOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
 
         // Load media into Picodrive
         enum media_type_e type = PicoLoadMedia(pRomName, m_pRomBuffer, nRomSize, nullptr, GetBiosFilename, nullptr, nullptr);
-        if (type == PM_ERROR) {
-            CLogger::Get()->Write(FromOrchestrator, LogError, "Picodrive failed to load ROM: %s", pRomName);
+        if (type <= 0) {
+            CLogger::Get()->Write(FromOrchestrator, LogError, "Picodrive failed to load ROM: %s (type %d)", pRomName, type);
             return FALSE;
         }
 
