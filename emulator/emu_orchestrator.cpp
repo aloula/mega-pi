@@ -97,38 +97,91 @@ boolean CEmuOrchestrator::Initialize() {
     return TRUE;
 }
 
-boolean CEmuOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
-    if (nRomSize > ROM_BUFFER_SIZE) {
-        CLogger::Get()->Write(FromOrchestrator, LogError, "ROM too large: %u bytes", nRomSize);
-        return FALSE;
+static int my_strcasecmp(const char *s1, const char *s2) {
+    while (*s1 && *s2) {
+        char c1 = *s1;
+        char c2 = *s2;
+        if (c1 >= 'A' && c1 <= 'Z') c1 += 32;
+        if (c2 >= 'A' && c2 <= 'Z') c2 += 32;
+        if (c1 != c2) return c1 - c2;
+        s1++;
+        s2++;
     }
+    return (unsigned char)*s1 - (unsigned char)*s2;
+}
 
-    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Loading ROM: %s (%u bytes)", pRomName, nRomSize);
+static const char *GetBiosFilename(int *region, const char *cd_fname) {
+    static char bios_path[256];
+    int reg = *region;
     
-    FIL file;
-    FRESULT res = f_open(&file, pRomName, FA_READ);
-    if (res != FR_OK) {
-        CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to open ROM file: %s (error %d)", pRomName, res);
-        return FALSE;
+    // Check region: 4 = US, 8 = EU, others (1, 2) = JP
+    if (reg == 4) {
+        snprintf(bios_path, sizeof(bios_path), "SD:/bios/bios_CD_U.bin");
+    } else if (reg == 8) {
+        snprintf(bios_path, sizeof(bios_path), "SD:/bios/bios_CD_E.bin");
+    } else {
+        snprintf(bios_path, sizeof(bios_path), "SD:/bios/bios_CD_J.bin");
+    }
+    
+    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Sega CD BIOS requested for region %d, returning path: %s", reg, bios_path);
+    return bios_path;
+}
+
+boolean CEmuOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
+    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Loading ROM: %s (size %u)", pRomName, nRomSize);
+
+    boolean is_cd = FALSE;
+    const char *pDot = strrchr(pRomName, '.');
+    if (pDot != nullptr) {
+        pDot++;
+        if (my_strcasecmp(pDot, "iso") == 0 ||
+            my_strcasecmp(pDot, "cue") == 0 ||
+            my_strcasecmp(pDot, "chd") == 0) {
+            is_cd = TRUE;
+        }
     }
 
-    UINT bytesRead = 0;
-    res = f_read(&file, m_pRomBuffer, nRomSize, &bytesRead);
-    f_close(&file);
+    if (is_cd) {
+        // For CD images, we do not load them into memory.
+        // Picodrive reads CD tracks directly from the file system.
+        enum media_type_e type = PicoLoadMedia(pRomName, nullptr, 0, nullptr, GetBiosFilename, nullptr, nullptr);
+        if (type == PM_ERROR || type == PM_BAD_CD_NO_BIOS) {
+            CLogger::Get()->Write(FromOrchestrator, LogError, "Picodrive failed to load CD image: %s (type %d)", pRomName, type);
+            return FALSE;
+        }
+        CLogger::Get()->Write(FromOrchestrator, LogNotice, "CD Image Loaded Successfully! Type: %d", type);
+    } else {
+        // Ensure ROM size is within bounds
+        if (nRomSize > ROM_BUFFER_SIZE) {
+            CLogger::Get()->Write(FromOrchestrator, LogError, "ROM size too big: %u > %u", nRomSize, ROM_BUFFER_SIZE);
+            return FALSE;
+        }
 
-    if (res != FR_OK || bytesRead != nRomSize) {
-        CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to read whole ROM. Read %u of %u bytes (error %d)", bytesRead, nRomSize, res);
-        return FALSE;
+        FIL file;
+        FRESULT res = f_open(&file, pRomName, FA_READ);
+        if (res != FR_OK) {
+            CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to open ROM file: %s (error %d)", pRomName, res);
+            return FALSE;
+        }
+
+        UINT bytesRead = 0;
+        res = f_read(&file, m_pRomBuffer, nRomSize, &bytesRead);
+        f_close(&file);
+
+        if (res != FR_OK || bytesRead != nRomSize) {
+            CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to read whole ROM. Read %u of %u bytes (error %d)", bytesRead, nRomSize, res);
+            return FALSE;
+        }
+
+        // Load media into Picodrive
+        enum media_type_e type = PicoLoadMedia(pRomName, m_pRomBuffer, nRomSize, nullptr, GetBiosFilename, nullptr, nullptr);
+        if (type == PM_ERROR) {
+            CLogger::Get()->Write(FromOrchestrator, LogError, "Picodrive failed to load ROM: %s", pRomName);
+            return FALSE;
+        }
+
+        CLogger::Get()->Write(FromOrchestrator, LogNotice, "ROM Loaded Successfully! Type: %d", type);
     }
-
-    // Load media into Picodrive
-    enum media_type_e type = PicoLoadMedia(pRomName, m_pRomBuffer, nRomSize, nullptr, nullptr, nullptr, nullptr);
-    if (type == PM_ERROR) {
-        CLogger::Get()->Write(FromOrchestrator, LogError, "Picodrive failed to load ROM: %s", pRomName);
-        return FALSE;
-    }
-
-    CLogger::Get()->Write(FromOrchestrator, LogNotice, "ROM Loaded Successfully! Type: %d", type);
 
     strncpy(m_CurrentRomName, pRomName, sizeof(m_CurrentRomName) - 1);
     m_CurrentRomName[sizeof(m_CurrentRomName) - 1] = '\0';

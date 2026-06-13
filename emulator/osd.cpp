@@ -53,7 +53,10 @@ void COSDMenu::ScanRoms() {
                 pDot++;
                 if (my_strcasecmp(pDot, "bin") == 0 ||
                     my_strcasecmp(pDot, "md") == 0 ||
-                    my_strcasecmp(pDot, "gen") == 0) {
+                    my_strcasecmp(pDot, "gen") == 0 ||
+                    my_strcasecmp(pDot, "iso") == 0 ||
+                    my_strcasecmp(pDot, "cue") == 0 ||
+                    my_strcasecmp(pDot, "chd") == 0) {
                     strncpy(m_RomFiles[m_RomCount], fileInfo.fname, sizeof(m_RomFiles[m_RomCount]) - 1);
                     m_RomFiles[m_RomCount][sizeof(m_RomFiles[m_RomCount]) - 1] = '\0';
                     m_RomSizes[m_RomCount] = fileInfo.fsize;
@@ -81,7 +84,11 @@ void COSDMenu::Update() {
         }
         
         unsigned size_kb = m_RomSizes[i] / 1024;
-        snprintf(g_SharedState.menu_lines[i], 80, "%s (%u KB)", temp, size_kb);
+        if (size_kb >= 1024) {
+            snprintf(g_SharedState.menu_lines[i], 80, "%s (%u MB)", temp, size_kb / 1024);
+        } else {
+            snprintf(g_SharedState.menu_lines[i], 80, "%s (%u KB)", temp, size_kb);
+        }
     }
     g_SharedState.menu_needs_redraw = TRUE;
 }
