@@ -12,6 +12,5 @@
 .idea/
 .DS_Store
 
-# Release packages
-mega-pi-release-*.zip
-
+# Release packages (allow committing versioned release zips)
+# mega-pi-release-*.zip
