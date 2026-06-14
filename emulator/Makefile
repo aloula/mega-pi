@@ -132,4 +132,7 @@ include $(CIRCLEHOME)/Rules.mk
 # Make all objects depend on generated offset header
 $(OBJS): ../picodrive/pico/pico_int_offs.h
 
+# Rebuild kernel.o when VERSION changes
+kernel.o: ../VERSION
+
 -include $(DEPS)

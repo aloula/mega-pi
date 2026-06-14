@@ -94,7 +94,10 @@ CCPUThrottle::CCPUThrottle (TCPUSpeed InitialSpeed)
 		return;
 	}
 
-	assert (m_nEnforcedTemperature <= m_nMaxTemperature);
+	if (m_nEnforcedTemperature > m_nMaxTemperature)
+	{
+		m_nEnforcedTemperature = m_nMaxTemperature;
+	}
 
 	if (m_nMinClockRate >= m_nMaxClockRate)
 	{

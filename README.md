@@ -1,4 +1,4 @@
-# MEGA-PI: Bare-Metal Sega Mega Drive/Genesis Emulator
+## MEGA-PI: Bare-Metal Sega Mega Drive/Genesis Emulator
 
 ![MEGA-PI Logo](res/Mega_Pi_Logo.png)
 
@@ -8,7 +8,7 @@ It leverages the **Picodrive** emulation core and runs on top of the **Circle** 
 
 ---
 
-## 🚀 Key Features
+### 🚀 Key Features
 
 *   **Multi-core Architecture**:
     *   **Core 0 (Orchestrator)**: Emulates the Sega Mega Drive/Mega CD hardware, clocks the Sub-CPU (S68K) synchronously, and handles emulation events.
@@ -28,7 +28,7 @@ It leverages the **Picodrive** emulation core and runs on top of the **Circle** 
 
 ---
 
-## 🎮 Controls & Shortcuts
+### 🎮 Controls & Shortcuts
 
 The emulator supports both USB gamepads and USB keyboards out-of-the-box.
 
@@ -66,7 +66,7 @@ In the menu or during gameplay, use the following keys:
 
 ---
 
-## 📁 Project Structure
+### 📁 Project Structure
 
 *   [emulator/](file:///home/loula/src/mega-pi/emulator/): Bare-metal integration code.
     *   [kernel.cpp](file:///home/loula/src/mega-pi/emulator/kernel.cpp) / [kernel.h](file:///home/loula/src/mega-pi/emulator/kernel.h): Entrypoint, multicore scheduling, rendering, and input handling.
@@ -80,7 +80,7 @@ In the menu or during gameplay, use the following keys:
 
 ---
 
-## 🛠️ How to Compile
+### 🛠️ How to Compile
 
 To compile the project, you need the GNU Arm Embedded Toolchain (`arm-none-eabi-gcc`).
 
@@ -129,20 +129,20 @@ Once Circle is compiled, you can build the emulator executable.
 To package all files needed for the SD card into a single zip file:
 
 1. **Version Tracking**:
-   * A single source-of-truth [VERSION](file:///home/loula/src/mega-pi/VERSION) file in the root of the repository tracks the emulator's current version (e.g., `1.0.0`).
-   * The [emulator/Makefile](file:///home/loula/src/mega-pi/emulator/Makefile) automatically reads this file during compilation and passes it to the preprocessor via the `-DMEGAPI_VERSION` macro. This displays the version dynamically in the OSD menu title: `--- MEGA-PI BAREMETAL EMULATOR v1.0.0 ---`.
+   * A single source-of-truth [VERSION](file:///home/loula/src/mega-pi/VERSION) file in the root of the repository tracks the emulator's current version (e.g., `1.0`).
+   * The [emulator/Makefile](file:///home/loula/src/mega-pi/emulator/Makefile) automatically reads this file during compilation and passes it to the preprocessor via the `-DMEGAPI_VERSION` macro. This displays the version dynamically in the OSD menu title: `--- MEGA-PI BAREMETAL EMULATOR v1.0 ---`.
 
 2. **Run the Packaging Script**:
    Return to the root directory and run the packaging script:
    ```bash
    ./create_release.sh [version]
    ```
-   * **Automatic Versioning (Default)**: Running `./create_release.sh` without arguments reads the version from the [VERSION](file:///home/loula/src/mega-pi/VERSION) file, normalizes it with a `v` prefix, and creates a versioned archive, e.g., `mega-pi-release-v1.0.0.zip`. If the `VERSION` file is missing, it falls back to the latest Git tag/hash.
-   * **Explicit Versioning**: You can pass a specific version string as an argument, e.g., `./create_release.sh 1.1.0` or `./create_release.sh v1.1.0`. The script will normalize the string to ensure a single `v` prefix and package it as `mega-pi-release-v1.1.0.zip`.
+   * **Automatic Versioning (Default)**: Running `./create_release.sh` without arguments reads the version from the [VERSION](file:///home/loula/src/mega-pi/VERSION) file, normalizes it with a `v` prefix, and creates a versioned archive, e.g., `mega-pi-release-v1.0.zip`. If the `VERSION` file is missing, it falls back to the latest Git tag/hash.
+   * **Explicit Versioning**: You can pass a specific version string as an argument, e.g., `./create_release.sh 1.1` or `./create_release.sh v1.1`. The script will normalize the string to ensure a single `v` prefix and package it as `mega-pi-release-v1.1.zip`.
 
 ---
 
-## ⚙️ How to Run on a Raspberry Pi
+### ⚙️ How to Run on a Raspberry Pi
 
 1. Format an SD card as **FAT32**.
 2. Copy all files and directories (including the `overlays` directory) from the [emulator/boot/](file:///home/loula/src/mega-pi/emulator/boot/) directory (including firmware files like `bootcode.bin`, `start.elf`, `start4.elf`, `fixup.dat`, Device Tree `.dtb` files, `config.txt`, and `cmdline.txt`) to the root of the SD card.
@@ -156,7 +156,7 @@ To package all files needed for the SD card into a single zip file:
 
 ---
 
-## 🤝 Credits & Acknowledgments
+### 🤝 Credits & Acknowledgments
 
 *   **Circle Bare-Metal Framework**: Developed by **R. Stange** (rsta2). Circle provides the outstanding bare-metal C++ environment, USB controllers, scheduling, audio support, and Raspberry Pi interface drivers.
 *   **Picodrive Emulator**: Developed by **notaz** and community contributors. Picodrive provides the optimized Sega Mega Drive / Genesis / Mega CD emulation engine, Cyclone M68K CPU core, and Z80 assembly cores.
