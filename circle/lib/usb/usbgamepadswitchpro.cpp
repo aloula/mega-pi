@@ -24,6 +24,7 @@
 #include <circle/usb/usbhid.h>
 #include <circle/usb/usbhostcontroller.h>
 #include <circle/synchronize.h>
+#include <circle/timer.h>
 #include <circle/logger.h>
 #include <circle/macros.h>
 #include <circle/debug.h>
@@ -103,6 +104,8 @@ boolean CUSBGamePadSwitchProDevice::Configure (void)
 
 		return FALSE;
 	}
+
+	CTimer::SimpleMsDelay (400);
 
 	m_usReportSize = REPORT_SIZE;
 
