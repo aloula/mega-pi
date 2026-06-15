@@ -24,6 +24,7 @@
 #include <circle/usb/usbhid.h>
 #include <circle/usb/usbhostcontroller.h>
 #include <circle/synchronize.h>
+#include <circle/timer.h>
 #include <circle/logger.h>
 #include <circle/macros.h>
 #include <circle/debug.h>
@@ -104,6 +105,8 @@ boolean CUSBGamePadSwitchProDevice::Configure (void)
 		return FALSE;
 	}
 
+	CTimer::SimpleMsDelay (400);
+
 	m_usReportSize = REPORT_SIZE;
 
 	if (!CUSBGamePadDevice::Configure ())
@@ -132,56 +135,62 @@ boolean CUSBGamePadSwitchProDevice::Configure (void)
 	}
 
 	// This command switches "something" in the controller
-        DMA_BUFFER (u8, switch_baudrate, 2) = { 0x80, 0x03 };
-        if (!SendToEndpointOut(switch_baudrate, 2)) {
-                CLogger::Get ()->Write (FromUSBPadSwitchPro, LogError, "switch_baudrate command failed!");
-                return FALSE;
-        }
-
-	// Is needed to read controller answer, a report with 0x81, 0x03 and zeroes
-	if (ReceiveFromEndpointIn(ReportBuffer, m_usReportSize) <= 0)
-	{
-                CLogger::Get ()->Write (FromUSBPadSwitchPro, LogError, "switch_baudrate answer failed!");
-                //debug_hexdump (ReportBuffer, m_usReportSize, FromUSBPadSwitchPro);
-                return FALSE;
-        }
-
-	// Check ACK
-	if (ReportBuffer[0] != 0x81 || ReportBuffer[1] != 0x03) {
-		CLogger::Get ()->Write (FromUSBPadSwitchPro, LogError, "switch_baudrate command failed!");
-		//debug_hexdump (ReportBuffer, m_usReportSize, FromUSBPadSwitchPro);
-                return FALSE;
+	DMA_BUFFER (u8, switch_baudrate, 2) = { 0x80, 0x03 };
+	boolean bHandshakeOK = TRUE;
+	if (!SendToEndpointOut(switch_baudrate, 2)) {
+		CLogger::Get ()->Write (FromUSBPadSwitchPro, LogWarning, "switch_baudrate command failed (non-fatal)");
+		bHandshakeOK = FALSE;
 	}
 
-	// This command switches "another something" in the controller
-        DMA_BUFFER (u8, handshake, 2) = { 0x80, 0x02 };
-        if (!SendToEndpointOut(handshake, 2)) {
-                CLogger::Get ()->Write (FromUSBPadSwitchPro, LogError, "handshake command failed!");
-                return FALSE;
-        }
-
-        // Receive ACK
-	if (ReceiveFromEndpointIn(ReportBuffer, m_usReportSize) <= 0)
-	{
-                CLogger::Get ()->Write (FromUSBPadSwitchPro, LogError, "handshake answer failed!");
-                //debug_hexdump (ReportBuffer, m_usReportSize, FromUSBPadSwitchPro);
-                return FALSE;
+	if (bHandshakeOK) {
+		// Is needed to read controller answer, a report with 0x81, 0x03 and zeroes
+		if (ReceiveFromEndpointIn(ReportBuffer, m_usReportSize) <= 0) {
+			CLogger::Get ()->Write (FromUSBPadSwitchPro, LogWarning, "switch_baudrate answer failed");
+			bHandshakeOK = FALSE;
+		}
 	}
 
-	// Check ACK
-	if (ReportBuffer[0] != 0x81 || ReportBuffer[1] != 0x02) {
-		CLogger::Get ()->Write (FromUSBPadSwitchPro, LogError, "handshake command failed!");
-		//debug_hexdump (ReportBuffer, m_usReportSize, FromUSBPadSwitchPro);
-                return FALSE;
+	if (bHandshakeOK) {
+		// Check ACK
+		if (ReportBuffer[0] != 0x81 || ReportBuffer[1] != 0x03) {
+			CLogger::Get ()->Write (FromUSBPadSwitchPro, LogWarning, "switch_baudrate check failed");
+			bHandshakeOK = FALSE;
+		}
 	}
 
-	// This command switches the controller to a HID mode, from here all works
-	// like a "standard" controller (ehem!). No ACK to this command.
-        DMA_BUFFER (u8, hid_only_mode, 2) = { 0x80, 0x04 };		// DMA buffer
-        if (!SendToEndpointOut(hid_only_mode, 2)) {
-                CLogger::Get ()->Write (FromUSBPadSwitchPro, LogError, "hid_only_mode command failed!");
-                return FALSE;
-        }
+	if (bHandshakeOK) {
+		// This command switches "another something" in the controller
+		DMA_BUFFER (u8, handshake, 2) = { 0x80, 0x02 };
+		if (!SendToEndpointOut(handshake, 2)) {
+			CLogger::Get ()->Write (FromUSBPadSwitchPro, LogWarning, "handshake command failed");
+			bHandshakeOK = FALSE;
+		}
+	}
+
+	if (bHandshakeOK) {
+		// Receive ACK
+		if (ReceiveFromEndpointIn(ReportBuffer, m_usReportSize) <= 0) {
+			CLogger::Get ()->Write (FromUSBPadSwitchPro, LogWarning, "handshake answer failed");
+			bHandshakeOK = FALSE;
+		}
+	}
+
+	if (bHandshakeOK) {
+		// Check ACK
+		if (ReportBuffer[0] != 0x81 || ReportBuffer[1] != 0x02) {
+			CLogger::Get ()->Write (FromUSBPadSwitchPro, LogWarning, "handshake check failed");
+			bHandshakeOK = FALSE;
+		}
+	}
+
+	if (bHandshakeOK) {
+		// This command switches the controller to a HID mode, from here all works
+		// like a "standard" controller (ehem!). No ACK to this command.
+		DMA_BUFFER (u8, hid_only_mode, 2) = { 0x80, 0x04 };		// DMA buffer
+		if (!SendToEndpointOut(hid_only_mode, 2)) {
+			CLogger::Get ()->Write (FromUSBPadSwitchPro, LogWarning, "hid_only_mode command failed");
+		}
+	}
 
         SetLEDMode(static_cast<TGamePadLEDMode>(m_nDeviceNumber));
         // Get the answer to LED commmand, sometimes gets a standard input report (0x30)

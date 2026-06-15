@@ -25,6 +25,7 @@
 #include <circle/usb/usbgamepadxbox360.h>
 #include <circle/usb/usbhostcontroller.h>
 #include <circle/synchronize.h>
+#include <circle/timer.h>
 #include <circle/logger.h>
 #include <circle/util.h>
 #include <circle/macros.h>
@@ -67,6 +68,8 @@ CUSBGamePadXbox360Device::~CUSBGamePadXbox360Device (void)
 
 boolean CUSBGamePadXbox360Device::Configure (void)
 {
+	CTimer::SimpleMsDelay (200);
+
 	m_usReportSize = REPORT_SIZE;
 
 	if (!CUSBGamePadDevice::Configure ())
@@ -90,10 +93,7 @@ boolean CUSBGamePadXbox360Device::Configure (void)
 	}
 	m_State.nhats = 0;
 
-	if (!SetLEDMode ((TGamePadLEDMode) m_nDeviceNumber))
-	{
-		return FALSE;
-	}
+	SetLEDMode ((TGamePadLEDMode) m_nDeviceNumber);
 
 	return StartRequest ();
 }
