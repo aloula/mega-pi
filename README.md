@@ -68,15 +68,15 @@ In the menu or during gameplay, use the following keys:
 
 ### 📁 Project Structure
 
-*   [emulator/](file:///home/loula/src/mega-pi/emulator/): Bare-metal integration code.
-    *   [kernel.cpp](file:///home/loula/src/mega-pi/emulator/kernel.cpp) / [kernel.h](file:///home/loula/src/mega-pi/emulator/kernel.h): Entrypoint, multicore scheduling, rendering, and input handling.
-    *   [emu_orchestrator.cpp](file:///home/loula/src/mega-pi/emulator/emu_orchestrator.cpp) / [emu_orchestrator.h](file:///home/loula/src/mega-pi/emulator/emu_orchestrator.h): Picodrive core setup, ROM loading, and save state actions.
-    *   [clib_stubs.cpp](file:///home/loula/src/mega-pi/emulator/clib_stubs.cpp): Standard C library stubs and custom file system wrapper mapping standard file functions to Circle's FAT FS.
-    *   [osd.cpp](file:///home/loula/src/mega-pi/emulator/osd.cpp) / [osd.h](file:///home/loula/src/mega-pi/emulator/osd.h): SD card ROM scanning and OSD menu state.
-    *   [audio_ring_buffer.h](file:///home/loula/src/mega-pi/emulator/audio_ring_buffer.h): Interlocked circular buffer for audio samples between Core 0 and Core 2.
-    *   [shared_state.h](file:///home/loula/src/mega-pi/emulator/shared_state.h): Memory shared across the 4 ARM cores.
-*   [picodrive/](file:///home/loula/src/mega-pi/picodrive/): Picodrive emulator core.
-*   [circle/](file:///home/loula/src/mega-pi/circle/): Circle bare-metal C++ framework.
+*   [emulator/](emulator/): Bare-metal integration code.
+    *   [kernel.cpp](emulator/kernel.cpp) / [kernel.h](emulator/kernel.h): Entrypoint, multicore scheduling, rendering, and input handling.
+    *   [emu_orchestrator.cpp](emulator/emu_orchestrator.cpp) / [emu_orchestrator.h](emulator/emu_orchestrator.h): Picodrive core setup, ROM loading, and save state actions.
+    *   [clib_stubs.cpp](emulator/clib_stubs.cpp): Standard C library stubs and custom file system wrapper mapping standard file functions to Circle's FAT FS.
+    *   [osd.cpp](emulator/osd.cpp) / [osd.h](emulator/osd.h): SD card ROM scanning and OSD menu state.
+    *   [audio_ring_buffer.h](emulator/audio_ring_buffer.h): Interlocked circular buffer for audio samples between Core 0 and Core 2.
+    *   [shared_state.h](emulator/shared_state.h): Memory shared across the 4 ARM cores.
+*   [picodrive/](picodrive/): Picodrive emulator core.
+*   [circle/](circle/): Circle bare-metal C++ framework.
 
 ---
 
@@ -87,12 +87,12 @@ To compile the project, you need the GNU Arm Embedded Toolchain (`arm-none-eabi-
 ### 1. Configure and Build the Circle Framework
 Circle must be configured for the correct Raspberry Pi hardware model and compiled first.
 
-1. Navigate to the [circle/](file:///home/loula/src/mega-pi/circle/) directory:
+1. Navigate to the [circle/](circle/) directory:
    ```bash
    cd circle
    ```
 
-2. Run the [configure](file:///home/loula/src/mega-pi/circle/configure) script with multi-core support enabled. 
+2. Run the [configure](circle/configure) script with multi-core support enabled. 
    
    * For **Raspberry Pi 3** (AArch32, outputs `kernel8-32.img`):
      ```bash
@@ -113,7 +113,7 @@ Circle must be configured for the correct Raspberry Pi hardware model and compil
 ### 2. Build the Emulator
 Once Circle is compiled, you can build the emulator executable.
 
-1. Navigate to the [emulator/](file:///home/loula/src/mega-pi/emulator/) directory:
+1. Navigate to the [emulator/](emulator/) directory:
    ```bash
    cd ../emulator
    ```
@@ -129,15 +129,15 @@ Once Circle is compiled, you can build the emulator executable.
 To package all files needed for the SD card into a single zip file:
 
 1. **Version Tracking**:
-   * A single source-of-truth [VERSION](file:///home/loula/src/mega-pi/VERSION) file in the root of the repository tracks the emulator's current version (e.g., `1.0`).
-   * The [emulator/Makefile](file:///home/loula/src/mega-pi/emulator/Makefile) automatically reads this file during compilation and passes it to the preprocessor via the `-DMEGAPI_VERSION` macro. This displays the version dynamically in the OSD menu title: `--- MEGA-PI BAREMETAL EMULATOR v1.0 ---`.
+   * A single source-of-truth [VERSION](VERSION) file in the root of the repository tracks the emulator's current version (e.g., `1.0`).
+   * The [emulator/Makefile](emulator/Makefile) automatically reads this file during compilation and passes it to the preprocessor via the `-DMEGAPI_VERSION` macro. This displays the version dynamically in the OSD menu title: `--- MEGA-PI BAREMETAL EMULATOR v1.0 ---`.
 
 2. **Run the Packaging Script**:
    Return to the root directory and run the packaging script:
    ```bash
    ./create_release.sh [version]
    ```
-   * **Automatic Versioning (Default)**: Running `./create_release.sh` without arguments reads the version from the [VERSION](file:///home/loula/src/mega-pi/VERSION) file, normalizes it with a `v` prefix, and creates a versioned archive, e.g., `mega-pi-release-v1.0.zip`. If the `VERSION` file is missing, it falls back to the latest Git tag/hash.
+   * **Automatic Versioning (Default)**: Running `./create_release.sh` without arguments reads the version from the [VERSION](VERSION) file, normalizes it with a `v` prefix, and creates a versioned archive, e.g., `mega-pi-release-v1.0.zip`. If the `VERSION` file is missing, it falls back to the latest Git tag/hash.
    * **Explicit Versioning**: You can pass a specific version string as an argument, e.g., `./create_release.sh 1.1` or `./create_release.sh v1.1`. The script will normalize the string to ensure a single `v` prefix and package it as `mega-pi-release-v1.1.zip`.
 
 ---
@@ -145,8 +145,8 @@ To package all files needed for the SD card into a single zip file:
 ### ⚙️ How to Run on a Raspberry Pi
 
 1. Format an SD card as **FAT32**.
-2. Copy all files and directories (including the `overlays` directory) from the [emulator/boot/](file:///home/loula/src/mega-pi/emulator/boot/) directory (including firmware files like `bootcode.bin`, `start.elf`, `start4.elf`, `fixup.dat`, Device Tree `.dtb` files, `config.txt`, and `cmdline.txt`) to the root of the SD card.
-3. Copy your compiled kernel image (`kernel8-32.img` for RPi 3 or `kernel7l.img` for RPi 4) from the [emulator/](file:///home/loula/src/mega-pi/emulator/) directory to the root of the SD card.
+2. Copy all files and directories (including the `overlays` directory) from the [emulator/boot/](emulator/boot/) directory (including firmware files like `bootcode.bin`, `start.elf`, `start4.elf`, `fixup.dat`, Device Tree `.dtb` files, `config.txt`, and `cmdline.txt`) to the root of the SD card.
+3. Copy your compiled kernel image (`kernel8-32.img` for RPi 3 or `kernel7l.img` for RPi 4) from the [emulator/](emulator/) directory to the root of the SD card.
 4. Create a folder named `roms` on the root of the SD card, and place your Sega Genesis ROMs (`.bin`, `.md`, `.gen`) and Sega CD games (`.cue` + `.bin` tracks, or compressed `.chd` files) inside it.
 5. **Sega CD BIOS Setup**: Create a folder named `bios` on the root of the SD card and copy the official Sega CD BIOS files. They must be named exactly as follows depending on the region:
    * **US Region**: `bios_CD_U.bin`
