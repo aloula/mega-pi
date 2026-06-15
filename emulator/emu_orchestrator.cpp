@@ -89,7 +89,8 @@ boolean CEmuOrchestrator::Initialize() {
 
     // Initialize Picodrive options
     PicoIn.opt = POPT_EN_FM | POPT_EN_PSG | POPT_EN_Z80 | POPT_EN_STEREO | POPT_FM_YM2612 |
-                 POPT_EN_MCD_PCM | POPT_EN_MCD_CDDA | POPT_EN_MCD_GFX | POPT_EN_MCD_RAMCART;
+                 POPT_EN_MCD_PCM | POPT_EN_MCD_CDDA | POPT_EN_MCD_GFX | POPT_EN_MCD_RAMCART |
+                 POPT_ACC_SPRITES;
     PicoIn.sndRate = 44100;
     PicoIn.sndOut = g_AudioTempBuf;
     PicoIn.writeSound = EmuSoundCallback;
