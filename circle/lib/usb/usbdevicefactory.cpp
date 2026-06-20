@@ -130,7 +130,8 @@ CUSBFunction *CUSBDeviceFactory::GetDevice (CUSBFunction *pParent, CString *pNam
 		pResult = new CUSBGamePadPS4Device (pParent);
 	}
 	else if (   pName->Compare ("ven45e-28e") == 0
-		 || pName->Compare ("ven45e-28f") == 0)
+		 || pName->Compare ("ven45e-28f") == 0
+		 || pName->Compare ("ven3537-1040") == 0)
 	{
 		pResult = new CUSBGamePadXbox360Device (pParent);
 	}

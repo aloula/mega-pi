@@ -714,12 +714,12 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
     // pad bit 11: Sega Mode
     if (pState->buttons & GamePadButtonA)     pad |= (1 << 6);  // Sega A
     if (pState->buttons & GamePadButtonB)     pad |= (1 << 4);  // Sega B
-    if (pState->buttons & GamePadButtonRT)    pad |= (1 << 5);  // Sega C (R2/RT -> C)
-    if (pState->buttons & GamePadButtonLT)    pad |= (1 << 8);  // Sega Z (L2/LT -> Z)
-    if (pState->buttons & GamePadButtonX)     pad |= (1 << 10); // Sega X
-    if (pState->buttons & GamePadButtonY)     pad |= (1 << 9);  // Sega Y
-    if (pState->buttons & GamePadButtonRB)    pad |= (1 << 8);  // Sega Z (fallback RB -> Z)
-    if (pState->buttons & GamePadButtonLB)    pad |= (1 << 10); // Sega X (fallback LB -> X)
+    if (pState->buttons & GamePadButtonX)     pad |= (1 << 5);  // Sega C (X -> C)
+    if (pState->buttons & GamePadButtonLB)    pad |= (1 << 10); // Sega X (LB -> X)
+    if (pState->buttons & GamePadButtonY)     pad |= (1 << 9);  // Sega Y (Y -> Y)
+    if (pState->buttons & GamePadButtonRB)    pad |= (1 << 8);  // Sega Z (RB -> Z)
+    if (pState->buttons & GamePadButtonRT)    pad |= (1 << 5);  // Sega C (fallback RT -> C)
+    if (pState->buttons & GamePadButtonLT)    pad |= (1 << 8);  // Sega Z (fallback LT -> Z)
     if (pState->buttons & GamePadButtonStart) pad |= (1 << 7);  // Sega Start
     if (pState->buttons & GamePadButtonSelect)pad |= (1 << 11); // Sega Mode
 
